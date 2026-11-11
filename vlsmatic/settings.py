@@ -74,6 +74,11 @@ DATABASES = {
     )
 }
 
+# Supabase's transaction pooler (port 6543) does not support prepared
+# statements. Session-pooler and direct connections keep psycopg's defaults.
+if str(DATABASES["default"].get("PORT")) == "6543":
+    DATABASES["default"].setdefault("OPTIONS", {})["prepare_threshold"] = None
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
