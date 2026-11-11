@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · VLSMatic{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block layout %}
+<main id="main-content" class="auth-shell">
+  <section class="auth-context" aria-labelledby="product-title">
+    <a class="wordmark" href="{% url 'accounts:home' %}" aria-label="VLSMatic home">
+      <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span>VLSMatic</span>
+    </a>
+    <div class="auth-context__copy">
+      <h1 id="product-title">Return to your planning workspace.</h1>
+      <p>Sign in to manage your account. Saved network projects and calculation tools remain clearly marked as upcoming until their development phase.</p>
+    </div>
+    <div class="address-map" aria-hidden="true">
+      <div class="address-map__root"><span>Secure session</span><small>Identity determines the permitted region</small></div>
+      <div class="address-map__block address-map__block--a"><span>USER</span></div>
+      <div class="address-map__block address-map__block--b"><span>ADMIN</span></div>
+      <div class="address-map__block address-map__block--c"><span>DENY</span></div>
+      <div class="address-map__block address-map__block--d"></div>
+    </div>
+    <p class="phase-note"><span>Protected</span> Database-backed Django session</p>
+  </section>
+
+  <section class="auth-form-panel" aria-labelledby="login-title">
+    <div class="auth-form-wrap auth-form-wrap--compact">
+      <header class="form-heading">
+        <p class="form-heading__step">Secure access</p>
+        <h2 id="login-title">Sign in</h2>
+        <p>Use the username and password created during registration.</p>
+      </header>
+      <form method="post" class="form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        {% include "accounts/partials/field.html" with field=form.username %}
+        {% include "accounts/partials/field.html" with field=form.password %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <button class="button button--primary" type="submit">Sign in securely</button>
+      </form>
+      <p class="form-switch">Need an account? <a href="{% url 'accounts:register' %}">Create one</a></p>
+    </div>
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VLSMatic — an explainable and visual IPv4 subnet planning system.">
+  <title>{% block title %}VLSMatic{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  {% if messages %}
+    <div class="message-stack" aria-live="polite">
+      {% for message in messages %}<p class="message message--{{ message.tags }}">{{ message }}</p>{% endfor %}
+    </div>
+  {% endif %}
+  {% block layout %}{% endblock %}
+</body>
+</html>

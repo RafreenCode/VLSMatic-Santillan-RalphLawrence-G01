@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Create your account · VLSMatic{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block layout %}
+<main id="main-content" class="auth-shell">
+  <section class="auth-context" aria-labelledby="product-title">
+    <a class="wordmark" href="{% url 'accounts:home' %}" aria-label="VLSMatic home">
+      <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span>VLSMatic</span>
+    </a>
+    <div class="auth-context__copy">
+      <h1 id="product-title">Plan address space with boundaries you can explain.</h1>
+      <p>Build the secure account foundation for saved IPv4 planning work. Network calculations and project tools arrive in later development phases.</p>
+    </div>
+    <div class="address-map" aria-label="Illustration of one IPv4 address block divided into subnet ranges">
+      <div class="address-map__root"><span>IPv4 address space</span><small>One block, precise boundaries</small></div>
+      <div class="address-map__block address-map__block--a"><span>/25</span></div>
+      <div class="address-map__block address-map__block--b"><span>/26</span></div>
+      <div class="address-map__block address-map__block--c"><span>/27</span></div>
+      <div class="address-map__block address-map__block--d"><span>/27</span></div>
+    </div>
+    <p class="phase-note"><span>Current phase</span> Account registration and secure access</p>
+  </section>
+
+  <section class="auth-form-panel" aria-labelledby="register-title">
+    <div class="auth-form-wrap">
+      <header class="form-heading">
+        <p class="form-heading__step">Account setup</p>
+        <h2 id="register-title">Create your account</h2>
+        <p>Use an email address you can access. Every public registration receives Regular User access.</p>
+      </header>
+
+      <form method="post" class="form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="form-alert" role="alert">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="field-grid field-grid--two">
+          {% include "accounts/partials/field.html" with field=form.first_name %}
+          {% include "accounts/partials/field.html" with field=form.last_name %}
+        </div>
+        {% include "accounts/partials/field.html" with field=form.username %}
+        {% include "accounts/partials/field.html" with field=form.email %}
+        {% include "accounts/partials/field.html" with field=form.password1 %}
+        {% include "accounts/partials/field.html" with field=form.password2 %}
+
+        <button class="button button--primary" type="submit">Create secure account</button>
+      </form>
+
+      <p class="form-switch">Already registered? <a href="#">Sign in</a></p>
+    </div>
+  </section>
+</main>
+{% endblock %}

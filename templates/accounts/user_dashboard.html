@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · VLSMatic{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="dashboard-shell">
+  <header class="dashboard-heading">
+    <div><h1>Welcome, {{ user.first_name|default:user.username }}.</h1><p>Your account boundary is secure. Review your details or see what is planned next.</p></div>
+    <span class="role-badge">Regular User</span>
+  </header>
+  <div class="dashboard-grid">
+    <section class="account-region">
+      <div class="section-heading"><h2>Account region</h2><span class="status status--active">Active</span></div>
+      <dl class="detail-grid">
+        <div><dt>Username</dt><dd>{{ user.username }}</dd></div>
+        <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
+        <div><dt>Access level</dt><dd>{{ user.get_role_display }}</dd></div>
+        <div><dt>Contact</dt><dd>{{ user.contact_number|default:"Not added" }}</dd></div>
+      </dl>
+      <a class="button button--secondary" href="{% url 'accounts:profile' %}">Review profile</a>
+    </section>
+    <aside class="future-region">
+      <h2>Planning regions</h2><p>These areas are intentionally unavailable in Project Development 1.</p>
+      <div class="future-list"><div><b>Network projects</b><span>Upcoming</span></div><div><b>Explain Mode</b><span>Upcoming</span></div><div><b>Address Canvas</b><span>Upcoming</span></div></div>
+    </aside>
+  </div>
+</main>
+{% endblock %}

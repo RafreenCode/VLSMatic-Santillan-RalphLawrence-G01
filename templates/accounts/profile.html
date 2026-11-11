@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Your profile · VLSMatic{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="profile-shell">
+  <header class="profile-heading">
+    <a href="{% url 'accounts:dashboard' %}">← Back to dashboard</a>
+    <h1>Your profile boundary</h1>
+    <p>These details belong only to your signed-in account. Role and administrative privileges cannot be changed here.</p>
+  </header>
+  <div class="profile-layout">
+    <section class="profile-form-region" aria-labelledby="profile-form-title">
+      <div class="section-heading"><h2 id="profile-form-title">Personal details</h2><span class="status status--active">Private</span></div>
+      <form method="post" class="form profile-form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="field-grid field-grid--two">
+          {% include "accounts/partials/field.html" with field=form.first_name %}
+          {% include "accounts/partials/field.html" with field=form.last_name %}
+        </div>
+        {% include "accounts/partials/field.html" with field=form.email %}
+        {% include "accounts/partials/field.html" with field=form.contact_number %}
+        <button type="submit" class="button button--primary">Save profile details</button>
+      </form>
+    </section>
+    <aside class="profile-access-region">
+      <h2>Protected access</h2>
+      <dl><div><dt>Username</dt><dd>{{ user.username }}</dd></div><div><dt>Role</dt><dd>{{ user.get_role_display }}</dd></div></dl>
+      <p>These values are intentionally outside the profile form. Contact an authorized administrator if access must change.</p>
+    </aside>
+  </div>
+</main>
+{% endblock %}

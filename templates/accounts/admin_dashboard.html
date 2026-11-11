@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Administrator dashboard · VLSMatic{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="dashboard-shell">
+  <header class="dashboard-heading">
+    <div><h1>Administrator boundary</h1><p>System-level account information is visible only to authorized administrators.</p></div>
+    <span class="role-badge role-badge--admin">Administrator</span>
+  </header>
+  <div class="dashboard-grid">
+    <section class="account-region">
+      <div class="section-heading"><h2>Current account records</h2><span class="status status--active">Live data</span></div>
+      <dl class="detail-grid"><div><dt>Total accounts</dt><dd>{{ total_users }}</dd></div><div><dt>Active accounts</dt><dd>{{ active_users }}</dd></div><div><dt>Signed in as</dt><dd>{{ user.username }}</dd></div><div><dt>Access level</dt><dd>{{ user.get_role_display }}</dd></div></dl>
+    </section>
+    <aside class="future-region"><h2>Administrative scope</h2><p>Full account management and system reporting are outside this milestone.</p><div class="future-list"><div><b>User management</b><span>Django admin</span></div><div><b>System statistics</b><span>Upcoming</span></div></div></aside>
+  </div>
+</main>
+{% endblock %}
