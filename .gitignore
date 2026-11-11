@@ -1,0 +1,42 @@
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Python virtual environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/
+
+# Local databases and logs
+*.sqlite3
+*.sqlite
+*.db
+*.log
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local AI/design-agent context and runtime files
+.impeccable/
+PRODUCT.md
+DESIGN.md
+.codex/
+.gemini/
+
+# Generated Python and Django artifacts
+staticfiles/
+media/
