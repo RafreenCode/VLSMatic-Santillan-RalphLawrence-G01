@@ -47,6 +47,8 @@ requirements.txt      Python dependencies
 vercel.json           Vercel project configuration
 ```
 
+Detailed explanations of every current database table, relationship, constraint, and maintenance requirement are available in [DATABASE.md](DATABASE.md).
+
 ## Prerequisites
 
 Install the following before running the project locally:
@@ -223,7 +225,7 @@ Do not develop new features or meaningful changes directly on `main`.
 
 1. Update the local `main` branch.
 2. Create a focused branch such as `feature/subnet-calculator`, `fix/login-validation`, or `docs/setup-guide`.
-3. Implement and test the change.
+3. Implement and test the change. If it changes a model or migration, update [DATABASE.md](DATABASE.md) in the same branch.
 4. Commit with a clear message.
 5. Push the branch to GitHub.
 6. Open a pull request targeting `main`.
