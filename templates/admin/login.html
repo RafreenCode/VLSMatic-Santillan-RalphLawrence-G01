@@ -1,0 +1,63 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% if form.errors %}{% translate "Error:" %} {% endif %}{{ block.super }}{% endblock %}
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'admin/css/login.css' %}" {% csp_nonce_attr %}>
+  {% csp_nonce_attr form.media %}
+{% endblock %}
+{% block bodyclass %}{{ block.super }} login vlsmatic-admin-login{% endblock %}
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block content %}
+  <div class="admin-login-layout">
+    <section class="admin-login-context" aria-labelledby="admin-login-context-title">
+      <div>
+        <h1 id="admin-login-context-title">A controlled boundary for system access.</h1>
+        <p>Review accounts and authorization records without exposing administrative controls to regular users.</p>
+      </div>
+      <dl class="admin-login-notes">
+        <div><dt>Access</dt><dd>Authorized staff only</dd></div>
+        <div><dt>Sessions</dt><dd>Protected by Django authentication</dd></div>
+      </dl>
+    </section>
+
+    <section class="admin-login-form" aria-labelledby="admin-login-title">
+      <div class="admin-login-heading">
+        <h2 id="admin-login-title">Sign in to administration</h2>
+        <p>Use a staff or superuser account to continue.</p>
+      </div>
+
+      {% if form.errors and not form.non_field_errors %}
+        <p class="errornote">{% blocktranslate count counter=form.errors.items|length %}Correct the error below and try again.{% plural %}Correct the errors below and try again.{% endblocktranslate %}</p>
+      {% endif %}
+      {% for error in form.non_field_errors %}<p class="errornote">{{ error }}</p>{% endfor %}
+
+      {% if user.is_authenticated %}
+        <p class="errornote">You are signed in as {{ username }}, but this account does not have administration access. Sign in with an authorized account.</p>
+      {% endif %}
+
+      <form action="{{ app_path }}" method="post" id="login-form">
+        {% csrf_token %}
+        <div class="form-row{% if form.username.errors %} errors{% endif %}">
+          {{ form.username.errors }}
+          {{ form.username.label_tag }}
+          {{ form.username }}
+        </div>
+        <div class="form-row{% if form.password.errors %} errors{% endif %}">
+          {{ form.password.errors }}
+          {{ form.password.label_tag }}
+          {{ form.password }}
+          <input type="hidden" name="next" value="{{ next }}">
+        </div>
+        <div class="submit-row"><input type="submit" value="{% translate 'Sign in' %}"></div>
+      </form>
+      <a class="admin-login-back" href="{% url 'accounts:login' %}">Return to the VLSMatic sign-in page</a>
+    </section>
+  </div>
+{% endblock %}
