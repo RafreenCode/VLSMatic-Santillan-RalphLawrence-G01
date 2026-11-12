@@ -11,8 +11,5 @@ urlpatterns = [
     path("register/", views.register, name="register"),
     path("login/", views.VLSMaticLoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
-    path("dashboard/", views.dashboard, name="dashboard"),
-    path("dashboard/user/", views.user_dashboard, name="user_dashboard"),
-    path("dashboard/administrator/", views.admin_dashboard, name="admin_dashboard"),
     path("profile/", views.profile, name="profile"),
 ]
