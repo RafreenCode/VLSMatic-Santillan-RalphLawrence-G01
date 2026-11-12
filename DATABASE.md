@@ -62,6 +62,7 @@ The central VLSMatic account table. It is generated from the custom `accounts.Us
 | `email` | Required unique email address used by registration and profile management |
 | `role` | VLSMatic role: `user` or `admin`; controls dashboard routing and authorization |
 | `contact_number` | Optional profile contact number |
+| `profile_photo_path` | Object path of the user's image in the Supabase Storage `profile-photos` bucket; blank when no photo is set |
 
 Important constraints and indexes:
 
@@ -73,7 +74,9 @@ Application behavior:
 
 - Public registration always creates the `user` role.
 - The `promote_admin` management command assigns the `admin` role and enables `is_staff`.
-- Profile editing exposes only first name, last name, email, and contact number.
+- Profile editing exposes only first name, last name, email, contact number, and a validated profile-photo upload/removal control.
+- Image bytes are stored in Supabase Storage, not PostgreSQL. The database retains only the owning user's object path.
+- Accepted uploads are orientation-corrected, center-cropped, stripped of unnecessary metadata, and encoded as 512-by-512 WebP images before storage.
 - Role, username, staff status, and superuser status cannot be changed through the public profile form.
 
 ## Authorization tables
@@ -197,6 +200,8 @@ When those features are implemented, their models, relationships, constraints, i
 - The local application uses the Supabase Session Pooler on port `5432`.
 - Serverless production uses the Transaction Pooler on port `6543` with prepared statements disabled.
 - Row Level Security is not currently required because browsers do not query Supabase directly. RLS policies must be designed and documented before any direct Supabase client access is introduced.
+- Profile-photo uploads are sent to Supabase Storage by the Django server with a secret key. The `profile-photos` bucket is public for image delivery, while upload and deletion credentials remain server-only.
+- Profile-photo objects use the path `users/<user-id>/<random-name>.<extension>` so ownership is explicit and replacements do not collide.
 - Production data must never be used as a test database.
 
 ## Verification checklist
