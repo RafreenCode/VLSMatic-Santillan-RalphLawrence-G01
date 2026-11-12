@@ -44,7 +44,6 @@ vlsmatic/             Django project settings and root URL configuration
 manage.py             Django management entry point
 requirements.txt      Python dependencies
 .env.example          Safe environment-variable template
-vercel.json           Vercel project configuration
 ```
 
 Detailed explanations of every current database table, relationship, constraint, and maintenance requirement are available in [DATABASE.md](DATABASE.md).
@@ -203,7 +202,7 @@ Tests must use an isolated test database and must not modify production data.
 
 ## Vercel deployment
 
-Automatic Git-based Vercel deployments are currently disabled in `vercel.json`. Do not re-enable automatic deployment or trigger a manual Vercel deployment without explicit project-owner authorization.
+Automatic Git-based deployments are enabled through the connected Vercel project. Pushes and merged pull requests can therefore produce new Vercel deployments. Vercel Authentication is configured in the Vercel dashboard to protect deployments from public access while the project remains under development.
 
 Production requires these Vercel environment variables:
 
