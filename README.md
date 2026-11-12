@@ -101,7 +101,7 @@ CSRF_TRUSTED_ORIGINS=http://localhost:8000
 SECURE_SSL_REDIRECT=False
 SECURE_HSTS_SECONDS=0
 SUPABASE_URL=https://your-project-reference.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=replace-with-your-service-role-key
+SUPABASE_SECRET_KEY=sb_secret_replace-with-your-secret-key
 SUPABASE_PROFILE_BUCKET=profile-photos
 ```
 
@@ -145,7 +145,7 @@ Copy the connection details from the Supabase project dashboard. Do not copy rea
 
 In the Supabase dashboard, open **Storage**, create a public bucket named `profile-photos`, and keep its file-size limit at or above 5 MB. The application validates uploads as JPEG, PNG, or WebP before sending them to this bucket.
 
-Copy the project URL and service-role key from the Supabase project API settings into `.env` locally and into Vercel environment variables for production. The service-role key is a server secret: never place it in templates, JavaScript, screenshots, documentation values, or Git.
+Copy the project URL and secret key from the Supabase project API settings into `.env` locally and into Vercel environment variables for production. The secret key is server-only: never place it in templates, JavaScript, screenshots, documentation values, or Git. Existing projects may temporarily use the legacy `SUPABASE_SERVICE_ROLE_KEY`; the application accepts it as a fallback while Supabase completes its key migration.
 
 ## Windows PostgreSQL client setup
 
@@ -225,7 +225,7 @@ ALLOWED_HOSTS
 CSRF_TRUSTED_ORIGINS
 SECURE_SSL_REDIRECT=True
 SUPABASE_URL
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY
 SUPABASE_PROFILE_BUCKET=profile-photos
 ```
 

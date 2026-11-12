@@ -199,7 +199,7 @@ When those features are implemented, their models, relationships, constraints, i
 - The local application uses the Supabase Session Pooler on port `5432`.
 - Serverless production uses the Transaction Pooler on port `6543` with prepared statements disabled.
 - Row Level Security is not currently required because browsers do not query Supabase directly. RLS policies must be designed and documented before any direct Supabase client access is introduced.
-- Profile-photo uploads are sent to Supabase Storage by the Django server with the service-role key. The `profile-photos` bucket is public for image delivery, while upload and deletion credentials remain server-only.
+- Profile-photo uploads are sent to Supabase Storage by the Django server with a secret key. The `profile-photos` bucket is public for image delivery, while upload and deletion credentials remain server-only.
 - Profile-photo objects use the path `users/<user-id>/<random-name>.<extension>` so ownership is explicit and replacements do not collide.
 - Production data must never be used as a test database.
 

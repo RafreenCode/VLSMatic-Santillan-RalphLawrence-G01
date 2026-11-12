@@ -16,13 +16,20 @@ IMAGE_EXTENSIONS = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp"}
 
 
 def _storage_config() -> tuple[str, str, str]:
-    if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
+    if not settings.SUPABASE_URL or not settings.SUPABASE_SECRET_KEY:
         raise ProfilePhotoStorageError("Profile photo storage is not configured yet.")
     return (
         settings.SUPABASE_URL.rstrip("/"),
-        settings.SUPABASE_SERVICE_ROLE_KEY,
+        settings.SUPABASE_SECRET_KEY,
         settings.SUPABASE_PROFILE_BUCKET,
     )
+
+
+def _auth_headers(secret_key: str) -> dict[str, str]:
+    headers = {"apikey": secret_key}
+    if not secret_key.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {secret_key}"
+    return headers
 
 
 def upload_profile_photo(user_id: int, photo: UploadedFile) -> str:
@@ -38,8 +45,7 @@ def upload_profile_photo(user_id: int, photo: UploadedFile) -> str:
         data=photo.read(),
         method="POST",
         headers={
-            "Authorization": f"Bearer {service_key}",
-            "apikey": service_key,
+            **_auth_headers(service_key),
             "Content-Type": photo.content_type or "application/octet-stream",
             "x-upsert": "false",
         },
@@ -65,8 +71,7 @@ def delete_profile_photo(object_path: str) -> None:
         data=json.dumps({"prefixes": [object_path]}).encode("utf-8"),
         method="DELETE",
         headers={
-            "Authorization": f"Bearer {service_key}",
-            "apikey": service_key,
+            **_auth_headers(service_key),
             "Content-Type": "application/json",
         },
     )
