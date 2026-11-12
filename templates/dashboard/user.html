@@ -4,8 +4,11 @@
 {% include "accounts/partials/app_header.html" %}
 <main id="main-content" class="dashboard-shell">
   <header class="dashboard-heading">
-    <div><h1>Welcome, {{ user.first_name|default:user.username }}.</h1><p>Your account boundary is secure. Review your details or see what is planned next.</p></div>
-    <span class="role-badge">Regular User</span>
+    <h1>Welcome, {{ user.first_name|default:user.username }}.</h1>
+    <div class="dashboard-heading__context">
+      <span class="role-badge">Regular User</span>
+      <p>Your account boundary is secure. Review your details or see what is planned next.</p>
+    </div>
   </header>
   <div class="dashboard-grid">
     <section class="account-region">
