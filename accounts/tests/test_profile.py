@@ -73,6 +73,12 @@ class ProfileTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.profile_photo_path, "users/1/photo.png")
         self.assertEqual(upload_photo.call_args.args[0], self.user.pk)
+        optimized_photo = upload_photo.call_args.args[1]
+        self.assertEqual(optimized_photo.content_type, "image/webp")
+        self.assertEqual(optimized_photo.name, "profile.webp")
+        with Image.open(optimized_photo) as image:
+            self.assertEqual(image.size, (512, 512))
+            self.assertEqual(image.format, "WEBP")
 
     @patch("accounts.views.delete_profile_photo")
     def test_user_can_remove_own_profile_photo(self, delete_photo):

@@ -76,6 +76,7 @@ Application behavior:
 - The `promote_admin` management command assigns the `admin` role and enables `is_staff`.
 - Profile editing exposes only first name, last name, email, contact number, and a validated profile-photo upload/removal control.
 - Image bytes are stored in Supabase Storage, not PostgreSQL. The database retains only the owning user's object path.
+- Accepted uploads are orientation-corrected, center-cropped, stripped of unnecessary metadata, and encoded as 512-by-512 WebP images before storage.
 - Role, username, staff status, and superuser status cannot be changed through the public profile form.
 
 ## Authorization tables

@@ -1,6 +1,9 @@
+from io import BytesIO
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from PIL import Image, UnidentifiedImageError
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .models import User
 
@@ -75,8 +78,22 @@ class ProfileForm(forms.ModelForm):
             raise forms.ValidationError("Choose a JPEG, PNG, or WebP image.")
         if width > 4096 or height > 4096:
             raise forms.ValidationError("Choose an image no larger than 4096 by 4096 pixels.")
-        photo.image_format = image_format
-        return photo
+        photo.seek(0)
+        with Image.open(photo) as source:
+            source = ImageOps.exif_transpose(source)
+            resized = ImageOps.fit(source, (512, 512), method=Image.Resampling.LANCZOS)
+            if resized.mode in {"RGBA", "LA"}:
+                background = Image.new("RGB", resized.size, "white")
+                background.paste(resized, mask=resized.getchannel("A"))
+                resized = background
+            else:
+                resized = resized.convert("RGB")
+            output = BytesIO()
+            resized.save(output, format="WEBP", quality=85, method=6)
+
+        optimized = SimpleUploadedFile("profile.webp", output.getvalue(), content_type="image/webp")
+        optimized.image_format = "WEBP"
+        return optimized
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

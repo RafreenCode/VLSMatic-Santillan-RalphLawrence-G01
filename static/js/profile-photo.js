@@ -1,8 +1,11 @@
 const input = document.querySelector("[data-profile-photo-input]");
 const preview = document.querySelector("[data-profile-photo-preview]");
 const filename = document.querySelector("[data-profile-photo-filename]");
+const trigger = document.querySelector("[data-profile-photo-trigger]");
 
-if (input && preview && filename) {
+if (input && preview && filename && trigger) {
+  trigger.addEventListener("click", () => input.click());
+
   input.addEventListener("change", () => {
     const [file] = input.files;
     if (!file) return;
@@ -12,6 +15,6 @@ if (input && preview && filename) {
     image.alt = `Preview of ${file.name}`;
     image.addEventListener("load", () => URL.revokeObjectURL(image.src), { once: true });
     preview.replaceChildren(image);
-    filename.textContent = file.name;
+    filename.textContent = `${file.name} · ready to upload`;
   });
 }

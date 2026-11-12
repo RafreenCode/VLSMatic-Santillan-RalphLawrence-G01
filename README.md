@@ -143,7 +143,7 @@ Copy the connection details from the Supabase project dashboard. Do not copy rea
 
 ### Profile-photo storage
 
-In the Supabase dashboard, open **Storage**, create a public bucket named `profile-photos`, and keep its file-size limit at or above 5 MB. The application validates uploads as JPEG, PNG, or WebP before sending them to this bucket.
+In the Supabase dashboard, open **Storage**, create a public bucket named `profile-photos`, and keep its file-size limit at or above 5 MB. The application validates JPEG, PNG, and WebP uploads, corrects their orientation, center-crops them, and stores them as optimized 512-by-512 WebP images.
 
 Copy the project URL and secret key from the Supabase project API settings into `.env` locally and into Vercel environment variables for production. The secret key is server-only: never place it in templates, JavaScript, screenshots, documentation values, or Git. Existing projects may temporarily use the legacy `SUPABASE_SERVICE_ROLE_KEY`; the application accepts it as a fallback while Supabase completes its key migration.
 

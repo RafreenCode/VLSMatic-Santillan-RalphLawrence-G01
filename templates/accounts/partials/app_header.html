@@ -5,9 +5,7 @@
   <nav class="app-nav" aria-label="Account navigation">
     <a href="{% url 'dashboard:home' %}">Dashboard</a>
     <a class="nav-profile" href="{% url 'accounts:profile' %}">
-      <span class="nav-profile__avatar" aria-hidden="true">
-        {% if user.profile_photo_url %}<img src="{{ user.profile_photo_url }}" alt="">{% else %}{{ user.first_name|default:user.username|first|upper }}{% endif %}
-      </span>
+      {% if user.profile_photo_url %}<img class="nav-profile__avatar" src="{{ user.profile_photo_url }}" alt="">{% endif %}
       <span>Profile</span>
     </a>
     <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit">Sign out</button></form>
