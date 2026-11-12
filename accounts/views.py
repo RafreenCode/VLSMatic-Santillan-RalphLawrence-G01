@@ -18,7 +18,7 @@ class VLSMaticLoginView(LoginView):
 def home(request):
     if request.user.is_authenticated:
         return redirect("dashboard:home")
-    return redirect("accounts:register")
+    return redirect("accounts:login")
 
 
 def register(request):
