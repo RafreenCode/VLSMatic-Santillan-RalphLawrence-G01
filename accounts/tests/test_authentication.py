@@ -9,6 +9,15 @@ class AuthenticationTests(TestCase):
         self.password = "StrongLabPassword!327"
         self.user = User.objects.create_user(username="student", email="student@example.com", password=self.password)
 
+    def test_home_routes_anonymous_visitors_to_login(self):
+        response = self.client.get(reverse("accounts:home"))
+        self.assertRedirects(response, reverse("accounts:login"))
+
+    def test_home_routes_authenticated_users_to_dashboard(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("accounts:home"))
+        self.assertRedirects(response, reverse("dashboard:home"), fetch_redirect_response=False)
+
     def test_valid_login_creates_session_and_routes_user(self):
         response = self.client.post(reverse("accounts:login"), {"username": "student", "password": self.password})
         self.assertRedirects(response, reverse("dashboard:home"), fetch_redirect_response=False)
