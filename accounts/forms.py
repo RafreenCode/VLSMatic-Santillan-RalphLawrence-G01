@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
+from PIL import Image, UnidentifiedImageError
 
 from .models import User
 
@@ -35,6 +36,16 @@ class RegistrationForm(UserCreationForm):
 
 
 class ProfileForm(forms.ModelForm):
+    profile_photo = forms.ImageField(
+        required=False,
+        label="Profile photo",
+        help_text="JPEG, PNG, or WebP. Maximum 5 MB.",
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/jpeg,image/png,image/webp", "data-profile-photo-input": ""}
+        ),
+    )
+    remove_profile_photo = forms.BooleanField(required=False, label="Remove current photo")
+
     class Meta:
         model = User
         fields = ("first_name", "last_name", "email", "contact_number")
@@ -44,6 +55,28 @@ class ProfileForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"autocomplete": "email"}),
             "contact_number": forms.TextInput(attrs={"autocomplete": "tel"}),
         }
+
+    def clean_profile_photo(self):
+        photo = self.cleaned_data.get("profile_photo")
+        if not photo:
+            return photo
+        if photo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("Choose an image smaller than 5 MB.")
+        try:
+            image = Image.open(photo)
+            width, height = image.size
+            image.verify()
+            image_format = image.format
+        except (UnidentifiedImageError, OSError, ValueError):
+            raise forms.ValidationError("Choose a valid JPEG, PNG, or WebP image.")
+        finally:
+            photo.seek(0)
+        if image_format not in {"JPEG", "PNG", "WEBP"}:
+            raise forms.ValidationError("Choose a JPEG, PNG, or WebP image.")
+        if width > 4096 or height > 4096:
+            raise forms.ValidationError("Choose an image no larger than 4096 by 4096 pixels.")
+        photo.image_format = image_format
+        return photo
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

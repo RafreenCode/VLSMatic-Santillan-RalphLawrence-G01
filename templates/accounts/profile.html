@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Your profile · VLSMatic{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
@@ -11,9 +12,34 @@
   <div class="profile-layout">
     <section class="profile-form-region" aria-labelledby="profile-form-title">
       <div class="section-heading"><h2 id="profile-form-title">Personal details</h2><span class="status status--active">Private</span></div>
-      <form method="post" class="form profile-form" novalidate>
+      <form method="post" enctype="multipart/form-data" class="form profile-form" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="profile-photo-field{% if form.profile_photo.errors %} profile-photo-field--error{% endif %}">
+          <div class="profile-photo-preview" data-profile-photo-preview>
+            {% if user.profile_photo_url %}
+              <img src="{{ user.profile_photo_url }}" alt="Current profile photo for {{ user.get_full_name|default:user.username }}">
+            {% else %}
+              <span aria-hidden="true">{{ user.first_name|default:user.username|first|upper }}{{ user.last_name|first|upper }}</span>
+            {% endif %}
+          </div>
+          <div class="profile-photo-copy">
+            <h3>Profile photo</h3>
+            <p>Make your account easier to recognize across VLSMatic.</p>
+            <div class="profile-photo-actions">
+              <label class="button button--upload" for="{{ form.profile_photo.id_for_label }}">Choose photo</label>
+              {{ form.profile_photo }}
+              <span class="profile-photo-filename" data-profile-photo-filename>JPEG, PNG, or WebP · up to 5 MB</span>
+            </div>
+            {% if user.profile_photo_path %}
+              <label class="profile-photo-remove" for="{{ form.remove_profile_photo.id_for_label }}">
+                {{ form.remove_profile_photo }}
+                <span>Remove current photo</span>
+              </label>
+            {% endif %}
+            {% if form.profile_photo.errors %}<div class="field__errors" id="{{ form.profile_photo.auto_id }}_errors" role="alert">{{ form.profile_photo.errors }}</div>{% endif %}
+          </div>
+        </div>
         <div class="field-grid field-grid--two">
           {% include "accounts/partials/field.html" with field=form.first_name %}
           {% include "accounts/partials/field.html" with field=form.last_name %}
@@ -31,3 +57,4 @@
   </div>
 </main>
 {% endblock %}
+{% block scripts %}<script src="{% static 'js/profile-photo.js' %}" defer></script>{% endblock %}

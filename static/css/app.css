@@ -83,6 +83,9 @@ button, input { font: inherit; }
 .app-nav { display: flex; align-items: center; gap: 26px; }
 .app-nav a, .app-nav button { color: var(--ink); background: none; border: 0; font-weight: 700; cursor: pointer; text-decoration: none; }
 .app-nav form { margin: 0; }
+.app-nav .nav-profile { display: inline-flex; align-items: center; gap: 9px; }
+.nav-profile__avatar { display: grid; width: 30px; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 9px; color: var(--ink); background: var(--amber); font-size: .76rem; font-weight: 800; }
+.nav-profile__avatar img { width: 100%; height: 100%; object-fit: cover; }
 .dashboard-shell { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: clamp(44px, 7vw, 88px) 0; }
 .dashboard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; padding-bottom: 34px; border-bottom: 1px solid var(--line); }
 .dashboard-heading h1 { max-width: 15ch; margin: 0 0 12px; font-size: clamp(2.4rem, 5vw, 4.8rem); line-height: 1; letter-spacing: -.04em; }
@@ -115,6 +118,21 @@ button, input { font: inherit; }
 .profile-form-region, .profile-access-region { padding: clamp(24px, 4vw, 40px); border-radius: var(--radius); }
 .profile-form-region { border: 1px solid var(--line-strong); background: var(--white); }
 .profile-form { margin-top: 28px; }
+.profile-photo-field { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 24px; align-items: center; margin-bottom: 30px; padding-bottom: 30px; border-bottom: 1px solid var(--line); }
+.profile-photo-preview { display: grid; width: 112px; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 16px; color: var(--ink); background: var(--amber); font-size: 1.8rem; font-weight: 800; letter-spacing: -.02em; }
+.profile-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.profile-photo-copy h3 { margin: 0 0 5px; font-size: 1rem; }
+.profile-photo-copy > p { margin: 0; color: var(--ink-soft); font-size: .9rem; }
+.profile-photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.profile-photo-actions input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.button--upload { display: inline-flex; min-height: 42px; align-items: center; padding: 9px 14px; border: 1px solid var(--line-strong); color: var(--ink); background: var(--white); cursor: pointer; }
+.button--upload:hover { border-color: var(--ink); background: var(--paper-deep); }
+.profile-photo-actions input[type="file"]:focus-visible + .profile-photo-filename,
+.button--upload:has(+ input[type="file"]:focus-visible) { outline: 3px solid var(--amber); outline-offset: 3px; }
+.profile-photo-filename { min-width: 0; color: var(--ink-soft); font-size: .82rem; overflow-wrap: anywhere; }
+.profile-photo-remove { display: inline-flex; align-items: center; gap: 9px; margin-top: 14px; color: var(--ink-soft); font-size: .86rem; font-weight: 700; cursor: pointer; }
+.profile-photo-remove input { width: 18px; height: 18px; accent-color: var(--ink); }
+.profile-photo-field--error .profile-photo-preview { outline: 2px solid var(--error); outline-offset: 3px; }
 .profile-access-region { color: var(--white); background: var(--ink); }
 .profile-access-region h2 { margin-top: 0; }
 .profile-access-region dl { margin: 26px 0; }
@@ -141,9 +159,12 @@ button, input { font: inherit; }
   .app-header, .dashboard-heading { align-items: flex-start; flex-direction: column; }
   .app-header { padding-top: 20px; padding-bottom: 20px; }
   .app-nav { width: 100%; justify-content: space-between; gap: 12px; }
+  .nav-profile__avatar { display: none; }
   .dashboard-shell { width: min(100% - 32px, 1240px); }
   .profile-shell { width: min(100% - 32px, 1120px); }
   .detail-grid { grid-template-columns: 1fr; }
+  .profile-photo-field { grid-template-columns: 80px minmax(0, 1fr); gap: 18px; }
+  .profile-photo-preview { width: 80px; border-radius: 12px; font-size: 1.35rem; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -12,7 +12,7 @@ The current milestone implements the Account Feature required for Project Develo
 - Protected pages that redirect anonymous users to the login page
 - Separate Regular User and Administrator dashboards
 - Server-side role authorization that prevents cross-role dashboard access
-- Profile viewing and editing for the currently authenticated user
+- Profile viewing and editing, including persistent profile photos, for the currently authenticated user
 - PostgreSQL persistence through Supabase
 - Automated tests for registration, authentication, authorization, and profile ownership
 
@@ -25,6 +25,7 @@ Subnet calculation, network-project management, reporting, and export features a
 | Application | Python 3.14 and Django 6.1 |
 | Frontend | Django templates, HTML, and CSS |
 | Database | PostgreSQL through Supabase |
+| Image storage | Supabase Storage |
 | Authentication | Django authentication and database-backed sessions |
 | Static files | Django staticfiles and WhiteNoise |
 | Hosting | Vercel |
@@ -99,6 +100,9 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=http://localhost:8000
 SECURE_SSL_REDIRECT=False
 SECURE_HSTS_SECONDS=0
+SUPABASE_URL=https://your-project-reference.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=replace-with-your-service-role-key
+SUPABASE_PROFILE_BUCKET=profile-photos
 ```
 
 Generate a Django secret key locally with:
@@ -136,6 +140,12 @@ postgresql://postgres.PROJECT_REFERENCE:URL_ENCODED_PASSWORD@POOLER_HOST:6543/po
 ```
 
 Copy the connection details from the Supabase project dashboard. Do not copy real values into documentation or source files.
+
+### Profile-photo storage
+
+In the Supabase dashboard, open **Storage**, create a public bucket named `profile-photos`, and keep its file-size limit at or above 5 MB. The application validates uploads as JPEG, PNG, or WebP before sending them to this bucket.
+
+Copy the project URL and service-role key from the Supabase project API settings into `.env` locally and into Vercel environment variables for production. The service-role key is a server secret: never place it in templates, JavaScript, screenshots, documentation values, or Git.
 
 ## Windows PostgreSQL client setup
 
@@ -214,6 +224,9 @@ DEBUG=False
 ALLOWED_HOSTS
 CSRF_TRUSTED_ORIGINS
 SECURE_SSL_REDIRECT=True
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_PROFILE_BUCKET=profile-photos
 ```
 
 Production `DATABASE_URL` should use the Supabase Transaction Pooler on port `6543`.
