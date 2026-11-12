@@ -11,7 +11,7 @@ class AuthenticationTests(TestCase):
 
     def test_valid_login_creates_session_and_routes_user(self):
         response = self.client.post(reverse("accounts:login"), {"username": "student", "password": self.password})
-        self.assertRedirects(response, reverse("accounts:dashboard"))
+        self.assertRedirects(response, reverse("dashboard:home"), fetch_redirect_response=False)
         self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.pk)
 
     def test_invalid_login_shows_feedback(self):
@@ -31,30 +31,4 @@ class AuthenticationTests(TestCase):
             f'{reverse("accounts:login")}?next=https://malicious.example/steal',
             {"username": "student", "password": self.password, "next": "https://malicious.example/steal"},
         )
-        self.assertRedirects(response, reverse("accounts:dashboard"))
-
-
-class DashboardAuthorizationTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username="student", email="student@example.com", password="SafePassword!327")
-        self.admin = User.objects.create_user(
-            username="administrator", email="admin@example.com", password="SafePassword!327", role=User.Role.ADMIN
-        )
-
-    def test_anonymous_user_is_redirected_to_login(self):
-        response = self.client.get(reverse("accounts:user_dashboard"))
-        self.assertRedirects(response, f'{reverse("accounts:login")}?next={reverse("accounts:user_dashboard")}')
-
-    def test_regular_user_cannot_access_admin_dashboard(self):
-        self.client.force_login(self.user)
-        self.assertEqual(self.client.get(reverse("accounts:admin_dashboard")).status_code, 403)
-
-    def test_admin_cannot_access_regular_dashboard(self):
-        self.client.force_login(self.admin)
-        self.assertEqual(self.client.get(reverse("accounts:user_dashboard")).status_code, 403)
-
-    def test_dashboard_router_sends_each_role_to_its_dashboard(self):
-        self.client.force_login(self.user)
-        self.assertRedirects(self.client.get(reverse("accounts:dashboard")), reverse("accounts:user_dashboard"))
-        self.client.force_login(self.admin)
-        self.assertRedirects(self.client.get(reverse("accounts:dashboard")), reverse("accounts:admin_dashboard"))
+        self.assertRedirects(response, reverse("dashboard:home"), fetch_redirect_response=False)

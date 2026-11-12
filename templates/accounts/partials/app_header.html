@@ -1,9 +1,9 @@
 <header class="app-header">
-  <a class="wordmark wordmark--dark" href="{% url 'accounts:dashboard' %}" aria-label="VLSMatic dashboard">
+  <a class="wordmark wordmark--dark" href="{% url 'dashboard:home' %}" aria-label="VLSMatic dashboard">
     <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>VLSMatic</span>
   </a>
   <nav class="app-nav" aria-label="Account navigation">
-    <a href="{% url 'accounts:dashboard' %}">Dashboard</a>
+    <a href="{% url 'dashboard:home' %}">Dashboard</a>
     <a href="{% url 'accounts:profile' %}">Profile</a>
     <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button type="submit">Sign out</button></form>
   </nav>
