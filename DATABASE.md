@@ -187,11 +187,56 @@ Key columns:
 
 Do not edit or delete migration-history rows manually.
 
+## Network planning tables
+
+### `network_projects_networkproject`
+
+Stores an authenticated user's saved IPv4 planning project.
+
+| Column | Purpose |
+| --- | --- |
+| `id` | Primary key |
+| `owner_id` | Foreign key to `accounts_user`; establishes record ownership |
+| `name` | Required project name, up to 120 characters |
+| `description` | Optional planning notes, up to 1,000 characters |
+| `base_network` | Normalized IPv4 network address |
+| `prefix_length` | CIDR prefix validated by the application from `/8` through `/30` |
+| `created_at` | Creation timestamp |
+| `updated_at` | Last modification timestamp |
+
+The `project_owner_updated_idx` index supports each user's project list ordered by recent activity. Deleting a user cascade-deletes that user's projects. Application views always include ownership in regular-user object queries; administrators receive a read-only cross-project overview.
+
+### `network_projects_subnetrequirement`
+
+Stores a requested subnet and its latest persisted VLSM allocation.
+
+| Column | Purpose |
+| --- | --- |
+| `id` | Primary key |
+| `project_id` | Foreign key to the parent network project |
+| `name` | Human-readable subnet name |
+| `required_hosts` | Required usable host capacity |
+| `sort_order` | Stable entry order before largest-first calculation |
+| `network_address` | Calculated subnet address; null before allocation |
+| `prefix_length` | Calculated CIDR prefix; null before allocation |
+| `subnet_mask` | Calculated dotted-decimal mask; null before allocation |
+| `first_usable_address` | First usable host address; null before allocation |
+| `last_usable_address` | Last usable host address; null before allocation |
+| `broadcast_address` | Calculated broadcast address; null before allocation |
+| `allocated_capacity` | Calculated usable-host capacity; null before allocation |
+
+Important rules:
+
+- `required_hosts_at_least_one` enforces a positive host requirement.
+- `unique_subnet_name_per_project` prevents duplicate names within one project.
+- `requirement_project_order_idx` supports ordered requirement retrieval.
+- Deleting a project cascade-deletes all requirements and allocation results.
+- Editing project boundaries or requirements clears saved allocation fields so stale results are not presented as current.
+- The allocation service updates all results inside one database transaction.
+
 ## Tables intentionally not present
 
-The `dashboard` application has no models because it reads and presents account information without owning persistent data. No subnet, network-project, allocation, report, or export tables exist yet because those features are outside the current Account Feature milestone.
-
-When those features are implemented, their models, relationships, constraints, indexes, ownership rules, and retention behavior must be added to this document in the same pull request.
+The `dashboard` application has no models because it reads and presents information without owning persistent data. Report, export, comparison, and address-canvas tables remain outside the PD2 increment.
 
 ## Supabase and security notes
 
