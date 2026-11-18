@@ -9,6 +9,7 @@ from accounts.models import User
 
 from .forms import NetworkProjectForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
+from .services import AllocationError, allocate_project
 
 
 def _owned_project(request, project_id):
@@ -142,3 +143,16 @@ def requirement_delete(request, requirement_id):
         messages.success(request, "Subnet requirement deleted.")
         return redirect("network_projects:detail", project_id=project.pk)
     return render(request, "network_projects/requirement_confirm_delete.html", {"requirement": requirement, "project": project})
+
+
+@login_required
+@require_POST
+def project_calculate(request, project_id):
+    project = _owned_project(request, project_id)
+    try:
+        allocate_project(project)
+    except AllocationError as error:
+        messages.error(request, error.messages[0])
+    else:
+        messages.success(request, "Allocation generated successfully.")
+    return redirect("network_projects:detail", project_id=project.pk)
