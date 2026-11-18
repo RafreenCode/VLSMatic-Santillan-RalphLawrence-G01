@@ -7,7 +7,7 @@
     <h1>Welcome, {{ user.first_name|default:user.username }}.</h1>
     <div class="dashboard-heading__context">
       <span class="role-badge">Regular User</span>
-      <p>Your account boundary is secure. Review your details or see what is planned next.</p>
+      <p>Build saved IPv4 plans, allocate address space, and keep each result tied to your account.</p>
     </div>
   </header>
   <div class="dashboard-grid">
@@ -21,9 +21,10 @@
       </dl>
       <a class="button button--secondary" href="{% url 'accounts:profile' %}">Review profile</a>
     </section>
-    <aside class="future-region">
-      <h2>Planning regions</h2><p>These areas are intentionally unavailable in Project Development 1.</p>
-      <div class="future-list"><div><b>Network projects</b><span>Upcoming</span></div><div><b>Explain Mode</b><span>Upcoming</span></div><div><b>Address Canvas</b><span>Upcoming</span></div></div>
+    <aside class="future-region planning-region">
+      <div class="section-heading"><h2>Network projects</h2><span class="status status--active">{{ project_count }} saved</span></div>
+      {% if recent_projects %}<div class="future-list">{% for project in recent_projects %}<div><a href="{% url 'network_projects:detail' project.id %}"><b>{{ project.name }}</b></a><span>{{ project.cidr }}</span></div>{% endfor %}</div>{% else %}<p>No plans yet. Start with a base IPv4 network and the host capacity each subnet needs.</p>{% endif %}
+      <div class="dashboard-actions"><a class="button button--secondary" href="{% url 'network_projects:create' %}">New project</a><a href="{% url 'network_projects:list' %}">View all</a></div>
     </aside>
   </div>
 </main>

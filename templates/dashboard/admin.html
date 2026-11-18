@@ -13,9 +13,9 @@
   <div class="dashboard-grid">
     <section class="account-region">
       <div class="section-heading"><h2>Current account records</h2><span class="status status--active">Live data</span></div>
-      <dl class="detail-grid"><div><dt>Total accounts</dt><dd>{{ total_users }}</dd></div><div><dt>Active accounts</dt><dd>{{ active_users }}</dd></div><div><dt>Signed in as</dt><dd>{{ user.username }}</dd></div><div><dt>Access level</dt><dd>{{ user.get_role_display }}</dd></div></dl>
+      <dl class="detail-grid"><div><dt>Total accounts</dt><dd>{{ total_users }}</dd></div><div><dt>Active accounts</dt><dd>{{ active_users }}</dd></div><div><dt>Network projects</dt><dd>{{ total_projects }}</dd></div><div><dt>Subnet requirements</dt><dd>{{ total_requirements }}</dd></div></dl>
     </section>
-    <aside class="future-region"><h2>Administrative scope</h2><p>Full account management and system reporting are outside this milestone.</p><div class="future-list"><div><b>User management</b><span>Django admin</span></div><div><b>System statistics</b><span>Upcoming</span></div></div></aside>
+    <aside class="future-region"><h2>Recent planning activity</h2><p>Project records are visible here without changing user-owned work.</p>{% if recent_projects %}<div class="future-list">{% for project in recent_projects %}<div><a href="{% url 'network_projects:detail' project.id %}"><b>{{ project.name }}</b></a><span>{{ project.owner.username }}</span></div>{% endfor %}</div>{% endif %}<a class="button button--secondary" href="{% url 'network_projects:list' %}">Review all projects</a></aside>
   </div>
 </main>
 {% endblock %}

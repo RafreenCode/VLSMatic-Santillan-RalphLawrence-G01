@@ -53,3 +53,18 @@ class ProjectViewTests(TestCase):
         self.assertEqual(self.client.get(reverse("network_projects:detail", args=[self.project.pk])).status_code, 200)
         self.assertEqual(self.client.get(reverse("network_projects:update", args=[self.project.pk])).status_code, 403)
 
+    def test_calculate_requires_post_and_persists_result(self):
+        requirement = SubnetRequirement.objects.create(project=self.project, name="Lab", required_hosts=50)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse("network_projects:calculate", args=[self.project.pk])).status_code, 405)
+        response = self.client.post(reverse("network_projects:calculate", args=[self.project.pk]))
+        requirement.refresh_from_db()
+        self.assertRedirects(response, reverse("network_projects:detail", args=[self.project.pk]))
+        self.assertEqual(requirement.network_address, "192.168.1.0")
+        self.assertEqual(requirement.prefix_length, 26)
+
+    def test_user_cannot_calculate_another_users_project(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("network_projects:calculate", args=[self.other_project.pk]))
+        self.assertEqual(response.status_code, 404)
+

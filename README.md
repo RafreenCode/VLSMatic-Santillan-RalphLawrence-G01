@@ -4,7 +4,21 @@ VLSMatic is an explainable and visual IPv4 subnet-planning system developed for 
 
 ## Current project scope
 
-The current milestone implements the Account Feature required for Project Development 1:
+The current milestone retains the Account Feature from Project Development 1 and adds the Project Development 2 core vertical slice: saved VLSM project planning and subnet allocation.
+
+### Core feature: VLSM project planning
+
+- Create, view, update, and delete user-owned network projects
+- Add, edit, and delete named subnet requirements with validated host counts
+- Validate IPv4 network boundaries and supported CIDR prefixes
+- Generate largest-first VLSM allocations without overlaps
+- Persist network addresses, masks, usable ranges, broadcasts, and capacities
+- Reject plans that exceed the selected base network without partial updates
+- Restrict regular users to their own records
+- Provide administrators with read-only project oversight and live statistics
+- Access the complete workflow through Django templates rather than Django Admin
+
+### Standard account features
 
 - Account registration with required-field, email, uniqueness, and password-confirmation validation
 - Secure password hashing through Django authentication
@@ -16,7 +30,7 @@ The current milestone implements the Account Feature required for Project Develo
 - PostgreSQL persistence through Supabase
 - Automated tests for registration, authentication, authorization, and profile ownership
 
-Subnet calculation, network-project management, reporting, and export features are planned for later milestones and are not part of the current implementation.
+Explain Mode, the visual Address Canvas, scenario comparison, reporting, and exports remain planned for later milestones.
 
 ## Technology stack
 
@@ -38,6 +52,7 @@ React, Next.js, Vue, and SQLite are not used in the final application setup.
 ```text
 accounts/             Account model, forms, authentication, profile, and admin tools
 dashboard/            Role-based dashboard views, routes, authorization, and tests
+network_projects/     Project CRUD, subnet requirements, allocation service, and tests
 static/css/           Application styles
 templates/accounts/   Registration, login, profile, and shared account templates
 templates/dashboard/  Regular User and Administrator dashboard templates
@@ -194,6 +209,9 @@ A Django superuser is a permission level, while Administrator is the custom VLSM
 | `/dashboard/user/` | Regular User dashboard |
 | `/dashboard/administrator/` | Administrator dashboard |
 | `/profile/` | View and update the authenticated user's profile |
+| `/projects/` | List the current user's network projects |
+| `/projects/new/` | Create a network project |
+| `/projects/<id>/` | Manage requirements and view saved allocation results |
 | `/admin/` | Django administration for authorized staff |
 
 ## Testing
