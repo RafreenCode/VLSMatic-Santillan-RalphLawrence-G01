@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +27,17 @@ def env_list(name: str, default: str = "") -> list[str]:
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-local-development-only" if IS_LOCAL else None)
 if not SECRET_KEY:
     raise ValueError("DJANGO_SECRET_KEY is required in remote mode.")
-DEBUG = True if IS_LOCAL else env_bool("DEBUG")
+# Remote PostgreSQL can still be used from the local HTTP development server.
+# This explicit switch prevents inherited production variables from forcing
+# secure-only cookies onto http://127.0.0.1.
+LOCAL_HTTP = env_bool("LOCAL_HTTP", IS_LOCAL)
+# A checked-out developer's explicit local-file choice must not be shadowed by
+# a desktop launcher or inherited machine environment. Production deployments
+# do not contain this ignored file.
+local_http_file_value = dotenv_values(BASE_DIR / ".env").get("LOCAL_HTTP")
+if local_http_file_value is not None:
+    LOCAL_HTTP = str(local_http_file_value).strip().lower() in {"1", "true", "yes", "on"}
+DEBUG = True if LOCAL_HTTP else env_bool("DEBUG")
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
