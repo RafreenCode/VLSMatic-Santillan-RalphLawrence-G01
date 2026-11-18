@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -7,11 +9,15 @@ from .forms import ProfileForm, RegistrationForm
 from .profile_photos import ProfilePhotoStorageError, delete_profile_photo, upload_profile_photo
 
 
+logger = logging.getLogger(__name__)
+
+
 class VLSMaticLoginView(LoginView):
     template_name = "accounts/login.html"
     redirect_authenticated_user = True
 
     def form_invalid(self, form):
+        logger.warning("Login attempt rejected: the submitted credentials did not authenticate.")
         messages.error(self.request, "We could not sign you in. Check your username and password.")
         return super().form_invalid(form)
 
