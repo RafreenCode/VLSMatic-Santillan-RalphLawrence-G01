@@ -2,8 +2,9 @@
   <a class="wordmark wordmark--dark" href="{% url 'dashboard:home' %}" aria-label="VLSMatic dashboard">
     <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>VLSMatic</span>
   </a>
-  <nav class="app-nav" aria-label="Account navigation">
+  <nav class="app-nav" aria-label="Primary navigation">
     <a href="{% url 'dashboard:home' %}">Dashboard</a>
+    <a href="{% url 'network_projects:list' %}">Projects</a>
     <a class="nav-profile" href="{% url 'accounts:profile' %}">
       {% if user.profile_photo_url %}<img class="nav-profile__avatar" src="{{ user.profile_photo_url }}" alt="">{% endif %}
       <span>Profile</span>

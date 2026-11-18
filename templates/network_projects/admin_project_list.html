@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Project oversight · VLSMatic{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="project-shell">
+  <header class="page-heading"><h1>Project oversight</h1><p>Read-only visibility across saved network projects. Ownership remains with each regular user.</p></header>
+  {% if projects %}
+    <div class="project-ledger">
+      <div class="project-ledger__head project-ledger__head--admin" aria-hidden="true"><span>Project</span><span>Owner</span><span>Network</span><span>Subnets</span></div>
+      {% for project in projects %}
+        <a class="project-row project-row--admin" href="{% url 'network_projects:detail' project.id %}"><span><strong>{{ project.name }}</strong><small>{{ project.updated_at|date:"M j, Y" }}</small></span><span>{{ project.owner.username }}</span><code>{{ project.cidr }}</code><span>{{ project.requirement_count }}</span></a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="empty-region"><h2>No saved projects</h2><p>Project records will appear here after regular users create them.</p></section>
+  {% endif %}
+</main>
+{% endblock %}
+
