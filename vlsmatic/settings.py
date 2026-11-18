@@ -10,6 +10,11 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+APP_ENV = os.getenv("APP_ENV", "remote").strip().lower()
+if APP_ENV not in {"local", "remote"}:
+    raise ValueError("APP_ENV must be either 'local' or 'remote'.")
+IS_LOCAL = APP_ENV == "local"
+
 
 def env_bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
@@ -19,13 +24,20 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
-DEBUG = env_bool("DEBUG")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-local-development-only" if IS_LOCAL else None)
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY is required in remote mode.")
+DEBUG = True if IS_LOCAL else env_bool("DEBUG")
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_PROFILE_BUCKET = os.getenv("SUPABASE_PROFILE_BUCKET", "profile-photos")
+PROFILE_PHOTO_STORAGE = os.getenv(
+    "PROFILE_PHOTO_STORAGE", "local" if IS_LOCAL else "supabase"
+).strip().lower()
+if PROFILE_PHOTO_STORAGE not in {"local", "supabase"}:
+    raise ValueError("PROFILE_PHOTO_STORAGE must be either 'local' or 'supabase'.")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -68,15 +80,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "vlsmatic.wsgi.application"
 
-DATABASE_URL = os.environ["DATABASE_URL"]
-DATABASES = {
-    "default": dj_database_url.parse(
-        DATABASE_URL,
-        conn_max_age=0,
-        conn_health_checks=True,
-        ssl_require=env_bool("DATABASE_SSL_REQUIRE"),
-    )
-}
+if IS_LOCAL:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "local.sqlite3",
+        }
+    }
+else:
+    DATABASE_URL = os.environ["DATABASE_URL"]
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=0,
+            conn_health_checks=True,
+            ssl_require=env_bool("DATABASE_SSL_REQUIRE"),
+        )
+    }
 
 # Supabase's transaction pooler (port 6543) does not support prepared
 # statements. Session-pooler and direct connections keep psycopg's defaults.
@@ -103,6 +123,8 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {

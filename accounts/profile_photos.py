@@ -5,6 +5,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 
 
@@ -33,6 +34,12 @@ def _auth_headers(secret_key: str) -> dict[str, str]:
 
 
 def upload_profile_photo(user_id: int, photo: UploadedFile) -> str:
+    if settings.PROFILE_PHOTO_STORAGE == "local":
+        object_path = f"profile-photos/users/{user_id}/{uuid4().hex}.webp"
+        saved_path = default_storage.save(object_path, photo)
+        photo.seek(0)
+        return saved_path
+
     base_url, service_key, bucket = _storage_config()
     extension = IMAGE_EXTENSIONS[photo.image_format]
     object_path = f"users/{user_id}/{uuid4().hex}.{extension}"
@@ -64,6 +71,10 @@ def upload_profile_photo(user_id: int, photo: UploadedFile) -> str:
 def delete_profile_photo(object_path: str) -> None:
     if not object_path:
         return
+    if settings.PROFILE_PHOTO_STORAGE == "local":
+        default_storage.delete(object_path)
+        return
+
     base_url, service_key, bucket = _storage_config()
     endpoint = f"{base_url}/storage/v1/object/{quote(bucket, safe='')}"
     request = Request(

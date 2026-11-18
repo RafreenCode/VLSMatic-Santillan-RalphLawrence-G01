@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.db import models
+from django.core.files.storage import default_storage
 from urllib.parse import quote
 
 
@@ -20,7 +21,11 @@ class User(AbstractUser):
 
     @property
     def profile_photo_url(self) -> str:
-        if not self.profile_photo_path or not settings.SUPABASE_URL:
+        if not self.profile_photo_path:
+            return ""
+        if settings.PROFILE_PHOTO_STORAGE == "local":
+            return default_storage.url(self.profile_photo_path)
+        if not settings.SUPABASE_URL:
             return ""
         bucket = quote(settings.SUPABASE_PROFILE_BUCKET, safe="")
         path = quote(self.profile_photo_path, safe="/")

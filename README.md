@@ -92,18 +92,21 @@ Copy-Item .env.example .env
 Update `.env` with local values:
 
 ```env
+APP_ENV=local
 DJANGO_SECRET_KEY=replace-with-a-generated-secret
 DEBUG=True
-DATABASE_URL=postgresql://database-user:url-encoded-password@database-host:5432/postgres
-DATABASE_SSL_REQUIRE=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=http://localhost:8000
 SECURE_SSL_REDIRECT=False
 SECURE_HSTS_SECONDS=0
-SUPABASE_URL=https://your-project-reference.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_replace-with-your-secret-key
-SUPABASE_PROFILE_BUCKET=profile-photos
+PROFILE_PHOTO_STORAGE=local
 ```
+
+This default local mode is fully offline: it stores application data in
+`local.sqlite3` and profile photos in `media/`. Both are ignored by Git. To
+develop against PostgreSQL and Supabase instead, set `APP_ENV=remote`, set
+`PROFILE_PHOTO_STORAGE=supabase`, and provide the database and Supabase values
+shown in `.env.example`.
 
 Generate a Django secret key locally with:
 
@@ -217,6 +220,7 @@ Automatic Git-based deployments are enabled through the connected Vercel project
 Production requires these Vercel environment variables:
 
 ```text
+APP_ENV=remote
 DJANGO_SECRET_KEY
 DATABASE_URL
 DATABASE_SSL_REQUIRE=True
@@ -227,6 +231,7 @@ SECURE_SSL_REDIRECT=True
 SUPABASE_URL
 SUPABASE_SECRET_KEY
 SUPABASE_PROFILE_BUCKET=profile-photos
+PROFILE_PHOTO_STORAGE=supabase
 ```
 
 Production `DATABASE_URL` should use the Supabase Transaction Pooler on port `6543`.
