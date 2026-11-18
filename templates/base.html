@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="VLSMatic — an explainable and visual IPv4 subnet planning system.">
+  <meta name="theme-color" content="#071f35">
   <title>{% block title %}VLSMatic{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
@@ -16,6 +17,7 @@
     </div>
   {% endif %}
   {% block layout %}{% endblock %}
+  <script src="{% static 'js/planning-workbench.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

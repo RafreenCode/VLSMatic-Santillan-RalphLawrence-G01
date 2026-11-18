@@ -1,6 +1,7 @@
+{% load static %}
 <header class="app-header">
   <a class="wordmark wordmark--dark" href="{% url 'dashboard:home' %}" aria-label="VLSMatic dashboard">
-    <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>VLSMatic</span>
+    <img class="wordmark__image" src="{% static 'img/vlsmatic-wordmark.png' %}" alt="VLSMatic">
   </a>
   <nav class="app-nav" aria-label="Primary navigation">
     <a href="{% url 'dashboard:home' %}">Dashboard</a>
