@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} · VLSMatic{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="form-shell">
+  <header class="page-heading"><a class="back-link" href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Back to projects</a><h1>{{ heading }}</h1><p>Set the address boundary first. VLSMatic will allocate subnet requirements inside it.</p></header>
+  <section class="form-region">
+    <form method="post" class="form">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% include "accounts/partials/field.html" with field=form.name %}
+      {% include "accounts/partials/field.html" with field=form.description %}
+      <div class="field-grid field-grid--two">{% include "accounts/partials/field.html" with field=form.base_network %}{% include "accounts/partials/field.html" with field=form.prefix_length %}</div>
+      <div class="form-actions"><button class="button button--primary" type="submit">Save project</button><a href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Cancel</a></div>
+    </form>
+  </section>
+</main>
+{% endblock %}
+

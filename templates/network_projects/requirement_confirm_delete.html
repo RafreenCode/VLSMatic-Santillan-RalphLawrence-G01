@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ requirement.name }} · VLSMatic{% endblock %}
+{% block layout %}{% include "accounts/partials/app_header.html" %}<main id="main-content" class="form-shell"><header class="page-heading"><a class="back-link" href="{% url 'network_projects:detail' project.id %}">Back to project</a><h1>Delete {{ requirement.name }}?</h1><p>The saved allocation will be cleared so the remaining subnets can be recalculated safely.</p></header><section class="form-region form-region--danger"><form method="post">{% csrf_token %}<div class="form-actions"><button class="button button--danger" type="submit">Delete requirement</button><a href="{% url 'network_projects:detail' project.id %}">Keep requirement</a></div></form></section></main>{% endblock %}
+
