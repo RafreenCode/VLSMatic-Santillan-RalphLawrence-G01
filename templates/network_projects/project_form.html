@@ -1,18 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{{ heading }} · VLSMatic{% endblock %}
+{% block title %}{{ heading }} - VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="form-shell">
-  <header class="page-heading"><a class="back-link" href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Back to projects</a><h1>{{ heading }}</h1><p>Set the address boundary first. VLSMatic will allocate subnet requirements inside it.</p></header>
-  <section class="form-region">
-    <form method="post" class="form">{% csrf_token %}
-      {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-      {% include "accounts/partials/field.html" with field=form.name %}
-      {% include "accounts/partials/field.html" with field=form.description %}
-      <div class="field-grid field-grid--two">{% include "accounts/partials/field.html" with field=form.base_network %}{% include "accounts/partials/field.html" with field=form.prefix_length %}</div>
-      <div class="form-actions"><button class="button button--primary" type="submit">Save project</button><a href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Cancel</a></div>
-    </form>
-  </section>
+<main id="main-content" class="studio-shell boundary-editor" data-boundary-editor>
+  <header class="editor-heading"><a class="back-link" href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Back to projects</a><h1>{{ heading }}</h1><p>Set the address boundary. Every subnet requirement will be validated and allocated inside it.</p></header>
+  <div class="boundary-layout">
+    <section class="studio-form-region"><form method="post" class="form">{% csrf_token %}{% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% include "accounts/partials/field.html" with field=form.name %}{% include "accounts/partials/field.html" with field=form.description %}<div class="field-grid field-grid--two">{% include "accounts/partials/field.html" with field=form.base_network %}{% include "accounts/partials/field.html" with field=form.prefix_length %}</div><div class="form-actions"><button class="button button--brand" type="submit">Save project</button><a href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Cancel</a></div></form></section>
+    <aside class="boundary-preview" aria-live="polite"><span>Network boundary</span><strong data-boundary-cidr>{% if project %}{{ project.cidr }}{% else %}192.168.1.0/24{% endif %}</strong><div class="boundary-preview__track"><i data-boundary-track></i></div><dl><div><dt>Total addresses</dt><dd data-boundary-total>—</dd></div><div><dt>Planning mode</dt><dd>Largest need first</dd></div></dl><p>Host addresses are not accepted as project boundaries. Use the first address in the selected CIDR block.</p></aside>
+  </div>
 </main>
 {% endblock %}
-

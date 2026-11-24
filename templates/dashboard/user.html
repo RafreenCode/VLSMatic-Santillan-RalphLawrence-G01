@@ -1,31 +1,60 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · VLSMatic{% endblock %}
+{% load static %}
+{% block title %}Planning dashboard · VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="dashboard-shell">
-  <header class="dashboard-heading">
-    <h1>Welcome, {{ user.first_name|default:user.username }}.</h1>
-    <div class="dashboard-heading__context">
-      <span class="role-badge">Regular User</span>
-      <p>Build saved IPv4 plans, allocate address space, and keep each result tied to your account.</p>
+<main id="main-content" class="studio-shell dashboard-studio" data-dashboard>
+  <header class="launch-header" data-motion-region>
+    <div class="launch-header__copy">
+      <h1>Plan the network.<br>See every address.</h1>
+      <p>Welcome back, {{ user.first_name|default:user.username }}. Continue a saved IPv4 plan or define a new boundary.</p>
+      <div class="launch-actions">
+        <a class="button button--brand" href="{% url 'network_projects:create' %}">New network project</a>
+        {% if resume_project %}<a class="button button--quiet" href="{% url 'network_projects:detail' resume_project.id %}">Resume {{ resume_project.name }}</a>{% endif %}
+      </div>
     </div>
+    {% if resume_project %}
+      <section class="hero-plan" aria-labelledby="hero-plan-title" data-plan-preview>
+        <div class="hero-plan__heading"><div><span>Latest saved plan</span><h2 id="hero-plan-title">{{ resume_project.name }}</h2><code>{{ resume_project.cidr }}</code></div><strong>{{ resume_summary.address_consumption|floatformat:1 }}% used</strong></div>
+        <div class="hero-plan__track" aria-label="{{ resume_summary.allocated_addresses }} of {{ resume_summary.total_addresses }} addresses allocated">
+          {% for allocation in resume_visualization %}<i class="hero-plan__segment hero-plan__segment--{% cycle 'a' 'b' 'c' 'd' %}" style="--offset: {{ allocation.relative_offset }}; --span: {{ allocation.relative_span }}" title="{{ allocation.name }}: {{ allocation.network }}/{{ allocation.prefix }}"></i>{% empty %}<span class="hero-plan__empty">Requirements are waiting for a valid allocation.</span>{% endfor %}
+        </div>
+        <dl><div><dt>Allocated</dt><dd>{{ resume_summary.allocated_addresses }}</dd></div><div><dt>Remaining</dt><dd>{{ resume_summary.remaining_addresses }}</dd></div><div><dt>Subnets</dt><dd>{{ resume_summary.subnet_count }}</dd></div></dl>
+        <a class="hero-plan__link" href="{% url 'network_projects:detail' resume_project.id %}">{% if resume_visualization %}Open plan{% else %}Finish allocation{% endif %} <span aria-hidden="true"></span></a>
+      </section>
+    {% else %}
+      <section class="hero-workflow" aria-labelledby="hero-workflow-title">
+        <h2 id="hero-workflow-title">From boundary to saved plan</h2>
+        <ol><li><strong>Define</strong><span>Choose the IPv4 network and prefix.</span></li><li><strong>Size</strong><span>Add each subnet’s usable-host need.</span></li><li><strong>Inspect</strong><span>Review every persisted allocation boundary.</span></li></ol>
+      </section>
+    {% endif %}
   </header>
-  <div class="dashboard-grid">
-    <section class="account-region">
-      <div class="section-heading"><h2>Account region</h2><span class="status status--active">Active</span></div>
-      <dl class="detail-grid">
-        <div><dt>Username</dt><dd>{{ user.username }}</dd></div>
-        <div><dt>Email</dt><dd>{{ user.email }}</dd></div>
-        <div><dt>Access level</dt><dd>{{ user.get_role_display }}</dd></div>
-        <div><dt>Contact</dt><dd>{{ user.contact_number|default:"Not added" }}</dd></div>
-      </dl>
-      <a class="button button--secondary" href="{% url 'accounts:profile' %}">Review profile</a>
-    </section>
-    <aside class="future-region planning-region">
-      <div class="section-heading"><h2>Network projects</h2><span class="status status--active">{{ project_count }} saved</span></div>
-      {% if recent_projects %}<div class="future-list">{% for project in recent_projects %}<div><a href="{% url 'network_projects:detail' project.id %}"><b>{{ project.name }}</b></a><span>{{ project.cidr }}</span></div>{% endfor %}</div>{% else %}<p>No plans yet. Start with a base IPv4 network and the host capacity each subnet needs.</p>{% endif %}
-      <div class="dashboard-actions"><a class="button button--secondary" href="{% url 'network_projects:create' %}">New project</a><a href="{% url 'network_projects:list' %}">View all</a></div>
-    </aside>
-  </div>
+
+  <section class="metric-ribbon" aria-label="Planning summary" data-motion-list>
+    <div><strong data-count="{{ project_count }}">{{ project_count }}</strong><span>Network projects</span></div>
+    <div><strong data-count="{{ active_plan_count }}">{{ active_plan_count }}</strong><span>Current plans</span></div>
+    <div><strong data-count="{{ subnet_count }}">{{ subnet_count }}</strong><span>Subnet requirements</span></div>
+    <div><strong data-count="{{ allocated_address_count }}">{{ allocated_address_count }}</strong><span>Allocated addresses</span></div>
+  </section>
+
+  <section class="dashboard-work" aria-labelledby="recent-heading" data-motion-region>
+    <div class="section-heading section-heading--studio"><div><h2 id="recent-heading">Continue planning</h2><p>Your most recently updated network boundaries.</p></div><a href="{% url 'network_projects:list' %}">View all projects</a></div>
+    {% if recent_projects %}
+      <div class="project-stack" data-motion-list>
+        {% for project in recent_projects %}
+          <a class="project-snapshot" href="{% url 'network_projects:detail' project.id %}">
+            <span class="project-snapshot__identity"><strong>{{ project.name }}</strong><code>{{ project.cidr }}</code></span>
+            <span class="project-snapshot__measure"><i style="--value: {{ project.address_consumption|floatformat:2 }}%"></i><small>{{ project.address_consumption|floatformat:1 }}% address space used</small></span>
+            <span class="project-snapshot__meta"><b>{{ project.requirement_count }}</b> subnets<time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|timesince }} ago</time></span>
+            <span class="project-snapshot__arrow" aria-hidden="true"></span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="studio-empty"><img src="{% static 'img/vlsmatic-icon.png' %}" alt=""><div><h2>Your first address space is waiting</h2><p>Start with an IPv4 network and prefix. VLSMatic will turn host requirements into a saved, visual allocation.</p><a class="button button--brand" href="{% url 'network_projects:create' %}">Create your first project</a></div></div>
+    {% endif %}
+  </section>
+  {{ resume_visualization|json_script:"dashboard-plan-preview-data" }}
 </main>
 {% endblock %}

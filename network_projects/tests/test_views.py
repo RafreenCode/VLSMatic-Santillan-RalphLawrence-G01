@@ -94,3 +94,25 @@ class ProjectViewTests(TestCase):
         self.assertEqual(self.project.calculation_run.pk, old_run)
         self.assertContains(response, "exceed this network")
 
+    def test_detail_exposes_only_persisted_allocation_geometry(self):
+        requirement = SubnetRequirement.objects.create(project=self.project, name="Studio", required_hosts=30)
+        from network_projects.services import allocate_project
+        allocate_project(self.project)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
+        payload = response.context["visualization_data"]
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["id"], requirement.pk)
+        self.assertEqual(payload[0]["network"], "192.168.1.0")
+        self.assertEqual(payload[0]["prefix"], 27)
+        self.assertEqual(payload[0]["offset"], 0)
+        self.assertEqual(payload[0]["relative_span"], 0.125)
+        self.assertContains(response, 'id="allocation-visualization-data"')
+
+    def test_empty_detail_retains_semantic_zero_state_without_javascript(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
+        self.assertEqual(response.context["visualization_data"], [])
+        self.assertContains(response, "No subnet requirements yet")
+        self.assertContains(response, "All saved allocation values remain available")
+

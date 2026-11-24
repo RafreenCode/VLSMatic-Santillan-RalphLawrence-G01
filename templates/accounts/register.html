@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Create your account · VLSMatic{% endblock %}
 {% block body_class %}auth-page{% endblock %}
@@ -6,13 +7,10 @@
 {% block layout %}
 <main id="main-content" class="auth-shell">
   <section class="auth-context" aria-labelledby="product-title">
-    <a class="wordmark" href="{% url 'accounts:home' %}" aria-label="VLSMatic home">
-      <span class="wordmark__mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <span>VLSMatic</span>
-    </a>
+    <a class="wordmark wordmark--auth" href="{% url 'accounts:home' %}" aria-label="VLSMatic home"><img class="wordmark__image" src="{% static 'img/vlsmatic-wordmark.png' %}" alt="VLSMatic"></a>
     <div class="auth-context__copy">
       <h1 id="product-title">Plan address space with boundaries you can explain.</h1>
-      <p>Build the secure account foundation for saved IPv4 planning work. Network calculations and project tools arrive in later development phases.</p>
+      <p>Create an account to save IPv4 projects, calculate subnet allocations, and return to your plans at any time.</p>
     </div>
     <div class="address-map" aria-label="Illustration of one IPv4 address block divided into subnet ranges">
       <div class="address-map__root"><span>IPv4 address space</span><small>One block, precise boundaries</small></div>

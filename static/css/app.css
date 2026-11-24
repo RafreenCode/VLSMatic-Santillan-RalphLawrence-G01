@@ -34,6 +34,8 @@ button, input, textarea, select { font: inherit; }
 .auth-shell { min-height: 100svh; display: grid; grid-template-columns: minmax(420px, .92fr) minmax(520px, 1.08fr); }
 .auth-context { position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 100svh; padding: clamp(28px, 4vw, 64px); color: var(--white); background: var(--ink); }
 .wordmark { display: inline-flex; align-items: center; gap: 12px; width: fit-content; color: inherit; font-size: 1.28rem; font-weight: 800; text-decoration: none; letter-spacing: -.02em; }
+.wordmark--auth { padding: 10px 14px; background: #fff; border-radius: 10px; }
+.wordmark--auth .wordmark__image { width: 154px; }
 .wordmark__mark { display: grid; grid-template-columns: repeat(2, 8px); grid-template-rows: repeat(2, 8px); gap: 2px; }
 .wordmark__mark i { display: block; background: var(--amber); }
 .wordmark__mark i:nth-child(2), .wordmark__mark i:nth-child(3) { background: var(--teal); }
@@ -73,7 +75,8 @@ button, input, textarea, select { font: inherit; }
 .field__errors { margin-top: 7px; color: var(--error); font-size: .86rem; font-weight: 700; }
 .field__errors ul, .form-alert ul { margin: 0; padding-left: 18px; }
 .form-alert { padding: 12px 14px; border-radius: 9px; color: var(--error); background: #f7ded9; }
-.button { min-height: 50px; padding: 12px 18px; border: 0; border-radius: 9px; font-weight: 800; cursor: pointer; }
+.button { min-height: 50px; padding: 12px 18px; border: 0; border-radius: 9px; font-weight: 800; cursor: pointer; text-decoration: none; }
+.button:hover, .button:focus, .button:active, a.button:hover, a.button:focus, a.button:active { text-decoration: none; }
 .button--primary { color: var(--white); background: var(--ink); box-shadow: 0 8px 20px rgb(11 39 51 / 16%); }
 .button--primary:hover { background: #164353; }
 .button--primary:active { transform: translateY(1px); box-shadow: 0 4px 12px rgb(11 39 51 / 18%); }

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T00:00:00+08:00",
+  "title": "Design System: VLSMatic Planning Studio",
+  "extensions": {
+    "colorMeta": {
+      "network-navy": {"role": "primary", "displayName": "Network Navy", "canonical": "#001030", "tonalRamp": ["#001030", "#06254b", "#12436b", "#356486", "#6686a0", "#9eb4c5", "#d3e0e8", "#f2f7fa"]},
+      "routing-cyan": {"role": "secondary", "displayName": "Routing Cyan", "canonical": "#0095a6", "tonalRamp": ["#00363d", "#005762", "#007b89", "#0095a6", "#31b5c1", "#75d0d7", "#b7e7ea", "#edf9fa"]},
+      "capacity-lime": {"role": "tertiary", "displayName": "Capacity Lime", "canonical": "#a2c617", "tonalRamp": ["#293500", "#465800", "#687f08", "#8eac12", "#a2c617", "#c4dc65", "#e1ecad", "#f6f9e8"]},
+      "workspace": {"role": "neutral", "displayName": "Cool Workspace", "canonical": "#f3f7f8", "tonalRamp": ["#172023", "#344044", "#566368", "#7c898d", "#a3afb2", "#c7d0d2", "#e2e8e9", "#f3f7f8"]}
+    },
+    "typographyMeta": {
+      "display": {"displayName": "Operational Display", "purpose": "Launch and page-defining headings only."},
+      "body": {"displayName": "Interface Body", "purpose": "Forms, explanations, and planning data."},
+      "label": {"displayName": "Technical Label", "purpose": "Compact metadata and control labels."}
+    },
+    "shadows": [
+      {"name": "working-surface", "value": "0 14px 38px rgb(0 40 60 / 8%)", "purpose": "Separate major white work regions from the workspace."},
+      {"name": "stage-depth", "value": "0 20px 50px rgb(0 16 48 / 18%)", "purpose": "Anchor dark boundary and visualization stages."}
+    ],
+    "motion": [
+      {"name": "studio-ease", "value": "cubic-bezier(.16, 1, .3, 1)", "purpose": "Boundary reveals, segment growth, and inspector continuity."},
+      {"name": "focal-duration", "value": "680ms", "purpose": "One authored dashboard boundary reveal per page arrival."},
+      {"name": "state-duration", "value": "150ms", "purpose": "Hover, focus, and selection feedback."}
+    ],
+    "breakpoints": [
+      {"name": "wide-collapse", "value": "1080px"},
+      {"name": "studio-stack", "value": "900px"},
+      {"name": "mobile", "value": "680px"}
+    ]
+  },
+  "components": [
+    {"name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "The forward planning action.", "html": "<button class=\"ds-btn-primary\">Add subnet</button>", "css": ".ds-btn-primary{min-height:50px;padding:12px 18px;border:0;border-radius:9px;color:#001030;background:#b9e51d;font:800 1rem/1.2 Inter,Segoe UI,sans-serif;box-shadow:0 10px 24px rgb(82 109 0 / 18%);transition:transform 150ms,background 150ms}.ds-btn-primary:hover{background:#c7f022;transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:3px solid #00b7c6;outline-offset:3px}"},
+    {"name": "Secondary Button", "kind": "button", "refersTo": "button-secondary", "description": "A reversible or lower-priority action.", "html": "<button class=\"ds-btn-secondary\">Edit boundary</button>", "css": ".ds-btn-secondary{min-height:50px;padding:12px 18px;border:1px solid #8aa3ad;border-radius:9px;color:#001030;background:transparent;font:800 1rem/1.2 Inter,Segoe UI,sans-serif}.ds-btn-secondary:hover{border-color:#0095a6;background:#e9f5f6}.ds-btn-secondary:focus-visible{outline:3px solid #00b7c6;outline-offset:3px}"},
+    {"name": "Planning Field", "kind": "input", "refersTo": "input", "description": "A clear numeric or text planning input.", "html": "<label class=\"ds-field\">Subnet name<input value=\"Computer laboratory\"></label>", "css": ".ds-field{display:grid;gap:6px;color:#53687a;font:800 .72rem/1.2 Inter,Segoe UI,sans-serif;text-transform:uppercase;letter-spacing:.06em}.ds-field input{min-height:48px;padding:11px 13px;border:1px solid #8aa3ad;border-radius:9px;color:#071b35;background:#fff;font:400 1rem/1.4 Inter,Segoe UI,sans-serif}.ds-field input:focus-visible{outline:3px solid #00b7c6;outline-offset:3px}"},
+    {"name": "Plan Status", "kind": "chip", "description": "Textual plan state paired with color.", "html": "<span class=\"ds-plan-state\">Current</span>", "css": ".ds-plan-state{display:inline-flex;padding:5px 9px;border-radius:999px;color:#005c57;background:#d8efeb;font:850 .72rem/1.2 Inter,Segoe UI,sans-serif}"},
+    {"name": "Network Console", "kind": "custom", "description": "A dark authoritative summary for real network quantities.", "html": "<section class=\"ds-console\"><span>Planning boundary</span><strong>192.168.1.0/24</strong><small>256 total addresses</small></section>", "css": ".ds-console{padding:24px 28px;color:#fff;background:#001030;box-shadow:0 20px 48px rgb(0 16 48 / 16%);font-family:Inter,Segoe UI,sans-serif}.ds-console span,.ds-console small{display:block;color:#abd2dc;font-size:.72rem}.ds-console strong{display:block;margin:3px 0;font-size:2rem;font-variant-numeric:tabular-nums}.ds-console:focus-within{outline:3px solid #00b7c6;outline-offset:3px}"}
+  ],
+  "narrative": {
+    "northStar": "The Network Operations Desk",
+    "overview": "VLSMatic is a calm technical instrument. Deep fields establish boundaries, cyan traces relationships and selection, and lime identifies capacity and safe forward actions.",
+    "keyCharacteristics": ["Technical, direct, and spatially disciplined.", "Cool-white working surfaces against deep navy infrastructure.", "Real network quantities drive every visual indicator.", "Semantic HTML remains complete before enhancement."],
+    "rules": [
+      {"name": "Signal Ownership", "body": "Cyan means relationship or selection; lime means capacity or forward action.", "section": "colors"},
+      {"name": "Address Legibility", "body": "CIDRs and exact address values use monospace or tabular numerals.", "section": "typography"},
+      {"name": "Structural Depth", "body": "Rows are separated with lines and tone; only major regions receive elevation.", "section": "elevation"}
+    ],
+    "dos": ["Do derive indicators from persisted server values.", "Do pair color states with status text, labels, and focus treatment.", "Do keep allocation data readable with JavaScript disabled.", "Do disable nonessential movement under reduced-motion preferences.", "Do use motion to reveal a real allocation boundary, connect selection states, or acknowledge an action."],
+    "donts": ["Don't introduce decorative charts, fabricated trends, or continuous animation.", "Don't use lime as a generic decoration or cyan as the primary submit action.", "Don't replace ledger rows with a wall of identical floating cards.", "Don't make JavaScript the source of allocation truth.", "Don't loop decorative motion or hide content before enhancement initializes."]
+  }
+}
