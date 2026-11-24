@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -10,7 +10,17 @@ from accounts.models import User
 
 from .forms import NetworkProjectForm, ProjectFilterForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
-from .services import AllocationError, allocate_project, project_summary
+from .services import AllocationError, allocate_project, allocation_visualization, project_summary
+
+
+def _decorate_projects(projects):
+    decorated = list(projects)
+    for project in decorated:
+        project.total_addresses = 2 ** (32 - project.prefix_length)
+        project.allocated_addresses = project.allocated_addresses or 0
+        project.address_consumption = project.allocated_addresses / project.total_addresses * 100
+        project.plan_status = "Allocated" if project.allocation_count else "Ready to plan"
+    return decorated
 
 
 def _owned_project(request, project_id):
@@ -32,9 +42,17 @@ def _owned_requirement(request, requirement_id):
 @login_required
 def project_list(request):
     if request.user.role == User.Role.ADMIN:
-        projects = NetworkProject.objects.select_related("owner").annotate(requirement_count=Count("requirements"))
-        return render(request, "network_projects/admin_project_list.html", {"projects": projects})
-    projects = request.user.network_projects.annotate(requirement_count=Count("requirements"))
+        projects = NetworkProject.objects.select_related("owner").annotate(
+            requirement_count=Count("requirements", distinct=True),
+            allocation_count=Count("requirements__allocation", distinct=True),
+            allocated_addresses=Sum("requirements__allocation__allocated_addresses"),
+        )
+        return render(request, "network_projects/admin_project_list.html", {"projects": _decorate_projects(projects)})
+    projects = request.user.network_projects.annotate(
+        requirement_count=Count("requirements", distinct=True),
+        allocation_count=Count("requirements__allocation", distinct=True),
+        allocated_addresses=Sum("requirements__allocation__allocated_addresses"),
+    )
     filters = ProjectFilterForm(request.GET or None)
     if filters.is_valid():
         if filters.cleaned_data["name"]:
@@ -43,7 +61,7 @@ def project_list(request):
             projects = projects.filter(base_network=filters.cleaned_data["network"])
         if filters.cleaned_data["created_date"]:
             projects = projects.filter(created_at__date=filters.cleaned_data["created_date"])
-    return render(request, "network_projects/project_list.html", {"projects": projects, "filters": filters, "filters_active": bool(request.GET)})
+    return render(request, "network_projects/project_list.html", {"projects": _decorate_projects(projects), "filters": filters, "filters_active": bool(request.GET)})
 
 
 @login_required
@@ -72,7 +90,13 @@ def project_detail(request, project_id):
     return render(
         request,
         "network_projects/project_detail.html",
-        {"project": project, "requirements": requirements, "summary": project_summary(project, requirements), "read_only": read_only},
+        {
+            "project": project,
+            "requirements": requirements,
+            "summary": project_summary(project, requirements),
+            "visualization_data": allocation_visualization(project, requirements),
+            "read_only": read_only,
+        },
     )
 
 

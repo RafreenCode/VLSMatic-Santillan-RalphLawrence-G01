@@ -25,6 +25,11 @@ class RegistrationTests(TestCase):
         self.assertTrue(user.check_password(self.valid_data["password1"]))
         self.assertNotEqual(user.password, self.valid_data["password1"])
 
+    def test_registration_uses_official_wordmark(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, 'src="/static/img/vlsmatic-wordmark.png"')
+        self.assertNotContains(response, 'class="wordmark__mark"')
+
     def test_required_fields_are_validated(self):
         response = self.client.post(self.url, {})
 

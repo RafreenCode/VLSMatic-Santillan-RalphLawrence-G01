@@ -28,6 +28,11 @@ class AuthenticationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Check your username and password")
 
+    def test_login_uses_official_wordmark(self):
+        response = self.client.get(reverse("accounts:login"))
+        self.assertContains(response, 'src="/static/img/vlsmatic-wordmark.png"')
+        self.assertNotContains(response, 'class="wordmark__mark"')
+
     def test_logout_requires_post_and_invalidates_session(self):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get(reverse("accounts:logout")).status_code, 405)

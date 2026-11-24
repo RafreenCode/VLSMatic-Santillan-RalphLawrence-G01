@@ -1,21 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Administrator dashboard · VLSMatic{% endblock %}
+{% block title %}Administrator dashboard - VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="dashboard-shell">
-  <header class="dashboard-heading">
-    <h1>Administrator boundary</h1>
-    <div class="dashboard-heading__context">
-      <span class="role-badge role-badge--admin">Administrator</span>
-      <p>System-level account information is visible only to authorized administrators.</p>
-    </div>
-  </header>
-  <div class="dashboard-grid">
-    <section class="account-region">
-      <div class="section-heading"><h2>Current account records</h2><span class="status status--active">Live data</span></div>
-      <dl class="detail-grid"><div><dt>Total accounts</dt><dd>{{ total_users }}</dd></div><div><dt>Active accounts</dt><dd>{{ active_users }}</dd></div><div><dt>Network projects</dt><dd>{{ total_projects }}</dd></div><div><dt>Subnet requirements</dt><dd>{{ total_requirements }}</dd></div></dl>
-    </section>
-    <aside class="future-region"><h2>Recent planning activity</h2><p>Project records are visible here without changing user-owned work.</p>{% if recent_projects %}<div class="future-list">{% for project in recent_projects %}<div><a href="{% url 'network_projects:detail' project.id %}"><b>{{ project.name }}</b></a><span>{{ project.owner.username }}</span></div>{% endfor %}</div>{% endif %}<a class="button button--secondary" href="{% url 'network_projects:list' %}">Review all projects</a></aside>
-  </div>
+<main id="main-content" class="studio-shell dashboard-studio">
+  <header class="admin-heading"><div><h1>System oversight</h1><p>Read-only planning activity and account health across VLSMatic.</p></div><a class="button button--brand" href="{% url 'admin:index' %}">Open administration</a></header>
+  <section class="metric-ribbon metric-ribbon--admin" aria-label="System summary">
+    <div><strong>{{ total_users }}</strong><span>Total accounts</span></div><div><strong>{{ active_users }}</strong><span>Active accounts</span></div><div><strong>{{ total_projects }}</strong><span>Network projects</span></div><div><strong>{{ total_requirements }}</strong><span>Requirements</span></div><div><strong>{{ total_allocations }}</strong><span>Allocations</span></div>
+  </section>
+  <section class="dashboard-work"><div class="section-heading section-heading--studio"><div><h2>Recent planning activity</h2><p>Open a project in read-only mode without changing user-owned work.</p></div><a href="{% url 'network_projects:list' %}">Review all projects</a></div>
+    {% if recent_projects %}<div class="project-stack">{% for project in recent_projects %}<a class="project-snapshot project-snapshot--admin" href="{% url 'network_projects:detail' project.id %}"><span class="project-snapshot__identity"><strong>{{ project.name }}</strong><code>{{ project.cidr }}</code></span><span class="project-snapshot__owner">Owned by <b>{{ project.owner.username }}</b></span><time datetime="{{ project.updated_at|date:'c' }}">Updated {{ project.updated_at|timesince }} ago</time><span class="project-snapshot__arrow" aria-hidden="true"></span></a>{% endfor %}</div>{% else %}<div class="studio-empty studio-empty--compact"><div><h2>No project activity yet</h2><p>Saved plans will appear here after regular users create them.</p></div></div>{% endif %}
+  </section>
 </main>
 {% endblock %}

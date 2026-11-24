@@ -84,3 +84,34 @@ def project_summary(project, requirements):
         "address_consumption": (allocated_addresses / total_addresses * 100) if total_addresses else 0,
         "total_addresses": total_addresses,
     }
+
+
+def allocation_visualization(project, requirements):
+    """Return persisted allocation geometry for progressive UI enhancement."""
+    base = IPv4Network(project.cidr, strict=True)
+    total = base.num_addresses
+    items = []
+    for requirement in requirements:
+        allocation = requirement.current_allocation
+        if allocation is None:
+            continue
+        offset = int(IPv4Address(allocation.network_address)) - int(base.network_address)
+        items.append(
+            {
+                "id": requirement.pk,
+                "name": requirement.name,
+                "network": allocation.network_address,
+                "prefix": allocation.prefix_length,
+                "first_usable": allocation.first_usable_address,
+                "last_usable": allocation.last_usable_address,
+                "broadcast": allocation.broadcast_address,
+                "required_hosts": requirement.required_hosts,
+                "usable_capacity": allocation.usable_capacity,
+                "allocated_addresses": allocation.allocated_addresses,
+                "offset": offset,
+                "relative_offset": offset / total,
+                "relative_span": allocation.allocated_addresses / total,
+                "efficiency": requirement.required_hosts / allocation.usable_capacity * 100,
+            }
+        )
+    return sorted(items, key=lambda item: item["offset"])

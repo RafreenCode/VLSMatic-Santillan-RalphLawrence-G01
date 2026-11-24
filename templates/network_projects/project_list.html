@@ -1,35 +1,20 @@
 {% extends "base.html" %}
-{% block title %}My network projects · VLSMatic{% endblock %}
+{% block title %}Network projects - VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="project-shell">
-  <header class="page-heading page-heading--actions">
-    <div><h1>My network projects</h1><p>Build reusable IPv4 plans and keep every subnet allocation with the account that created it.</p></div>
-    <a class="button button--primary button--link" href="{% url 'network_projects:create' %}">Create project</a>
-  </header>
-  <form method="get" class="filter-form" aria-label="Filter projects">
-    <label><span>Project name</span>{{ filters.name }}</label>
-    <label><span>Base network</span>{{ filters.network }}</label>
-    <label><span>Created date</span>{{ filters.created_date }}</label>
-    <button class="button button--secondary" type="submit">Filter</button>
-    {% if filters_active %}<a href="{% url 'network_projects:list' %}">Clear filters</a>{% endif %}
-    {% if filters.errors %}<div class="form-alert" role="alert">{{ filters.errors }}</div>{% endif %}
+<main id="main-content" class="studio-shell project-index">
+  <header class="index-heading"><div><h1>Network projects</h1><p>Search saved boundaries, inspect capacity, and continue allocating.</p></div><a class="button button--brand" href="{% url 'network_projects:create' %}">New project</a></header>
+  <form method="get" class="project-filter" aria-label="Filter projects">
+    <label><span>Project name</span>{{ filters.name }}</label><label><span>Base network</span>{{ filters.network }}</label><label><span>Created</span>{{ filters.created_date }}</label>
+    <button class="button button--filter" type="submit">Apply filters</button>{% if filters_active %}<a href="{% url 'network_projects:list' %}">Clear</a>{% endif %}
+    {% if filters.errors %}<div class="form-alert project-filter__errors" role="alert">{{ filters.errors }}</div>{% endif %}
   </form>
   {% if projects %}
-    <div class="project-ledger">
-      <div class="project-ledger__head" aria-hidden="true"><span>Project</span><span>Network</span><span>Subnets</span><span>Updated</span></div>
-      {% for project in projects %}
-        <a class="project-row" href="{% url 'network_projects:detail' project.id %}">
-          <span><strong>{{ project.name }}</strong><small>{{ project.description|default:"No description"|truncatechars:72 }}</small></span>
-          <code>{{ project.cidr }}</code><span>{{ project.requirement_count }}</span><time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|date:"M j, Y" }}</time>
-        </a>
-      {% endfor %}
+    <div class="project-stack project-stack--index">
+      {% for project in projects %}<a class="project-snapshot" href="{% url 'network_projects:detail' project.id %}"><span class="project-snapshot__identity"><strong>{{ project.name }}</strong><small>{{ project.description|default:"No project notes"|truncatechars:68 }}</small><code>{{ project.cidr }}</code></span><span class="project-snapshot__measure"><i style="--value: {{ project.address_consumption|floatformat:2 }}%"></i><small>{{ project.address_consumption|floatformat:1 }}% used</small></span><span class="project-snapshot__meta"><b>{{ project.requirement_count }}</b> subnets<span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span></span><time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|date:"M j, Y" }}</time><span class="project-snapshot__arrow" aria-hidden="true"></span></a>{% endfor %}
     </div>
-  {% elif filters_active %}
-    <section class="empty-region"><h2>No projects match these filters</h2><p>Change or clear the filters to see your saved plans.</p><a class="button button--secondary" href="{% url 'network_projects:list' %}">Clear filters</a></section>
-  {% else %}
-    <section class="empty-region"><h2>Start with the network boundary</h2><p>Create a project, define its IPv4 network, then add the teams or rooms that need address space.</p><a class="button button--secondary" href="{% url 'network_projects:create' %}">Create your first project</a></section>
-  {% endif %}
+  {% elif filters_active %}<section class="studio-empty studio-empty--compact"><div><h2>No projects match</h2><p>Try a broader name, another network address, or clear the date filter.</p><a class="button button--quiet" href="{% url 'network_projects:list' %}">Clear filters</a></div></section>
+  {% else %}<section class="studio-empty"><div><h2>Define your first network boundary</h2><p>Create a project, add host requirements, and inspect the resulting VLSM allocation visually.</p><a class="button button--brand" href="{% url 'network_projects:create' %}">Create your first project</a></div></section>{% endif %}
 </main>
 {% endblock %}
-

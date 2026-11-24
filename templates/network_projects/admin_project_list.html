@@ -1,19 +1,4 @@
 {% extends "base.html" %}
-{% block title %}Project oversight · VLSMatic{% endblock %}
-{% block layout %}
-{% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="project-shell">
-  <header class="page-heading"><h1>Project oversight</h1><p>Read-only visibility across saved network projects. Ownership remains with each regular user.</p></header>
-  {% if projects %}
-    <div class="project-ledger">
-      <div class="project-ledger__head project-ledger__head--admin" aria-hidden="true"><span>Project</span><span>Owner</span><span>Network</span><span>Subnets</span></div>
-      {% for project in projects %}
-        <a class="project-row project-row--admin" href="{% url 'network_projects:detail' project.id %}"><span><strong>{{ project.name }}</strong><small>{{ project.updated_at|date:"M j, Y" }}</small></span><span>{{ project.owner.username }}</span><code>{{ project.cidr }}</code><span>{{ project.requirement_count }}</span></a>
-      {% endfor %}
-    </div>
-  {% else %}
-    <section class="empty-region"><h2>No saved projects</h2><p>Project records will appear here after regular users create them.</p></section>
-  {% endif %}
-</main>
-{% endblock %}
-
+{% block title %}Project oversight - VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}{% include "accounts/partials/app_header.html" %}<main id="main-content" class="studio-shell project-index"><header class="index-heading"><div><h1>Project oversight</h1><p>Read-only access to saved network plans and their current allocation health.</p></div><span class="plan-state plan-state--active">Administrator view</span></header>{% if projects %}<div class="project-stack project-stack--index">{% for project in projects %}<a class="project-snapshot project-snapshot--admin" href="{% url 'network_projects:detail' project.id %}"><span class="project-snapshot__identity"><strong>{{ project.name }}</strong><small>Owned by {{ project.owner.username }}</small><code>{{ project.cidr }}</code></span><span class="project-snapshot__measure"><i style="--value: {{ project.address_consumption|floatformat:2 }}%"></i><small>{{ project.address_consumption|floatformat:1 }}% used</small></span><span class="project-snapshot__meta"><b>{{ project.requirement_count }}</b> subnets<span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span></span><time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|date:"M j, Y" }}</time><span class="project-snapshot__arrow" aria-hidden="true"></span></a>{% endfor %}</div>{% else %}<section class="studio-empty studio-empty--compact"><div><h2>No saved projects</h2><p>Plans will appear after regular users create them.</p></div></section>{% endif %}</main>{% endblock %}
