@@ -28,7 +28,7 @@ All parent relationships use database foreign keys. Deleting a user cascades thr
 | `code` | Primary key, varchar(10) | Stable `user` or `admin` code |
 | `name` | Required, varchar(50) | Display name |
 
-The migration seeds Regular User and Administrator records. Public registration always assigns the Regular User role.
+The migration seeds Regular User and Administrator records. A database check constraint rejects any other role code. Public registration always assigns the Regular User role.
 
 ## `accounts_user`
 
@@ -57,10 +57,10 @@ Project names are case-insensitively unique per owner. Application validation re
 | `id` | Primary key | Requirement identifier |
 | `project_id` | Required FK, cascade | Parent project |
 | `name` | Required, varchar(100) | Subnet label |
-| `required_hosts` | Check at least 1 | Required usable hosts |
+| `required_hosts` | BIGINT, check at least 1 | Required usable hosts, including full `/0` capacity |
 | `sort_order` | Non-negative | Stable input order |
 
-Names are unique within a project. Allocation results are deliberately stored separately rather than mixed into requirement inputs.
+Names are case-insensitively unique within a project. Allocation results are deliberately stored separately rather than mixed into requirement inputs.
 
 ## `network_projects_calculationrun`
 
@@ -87,6 +87,8 @@ A project has no run before it has requirements and exactly one current run afte
 | `allocated_addresses` | Check at least 4 | Full block size including network and broadcast |
 
 The allocation service verifies that the run and requirement share a project, processes requirements largest-first, selects the smallest fitting block, prevents overlap and overflow, and replaces all current allocations in one transaction.
+
+Planning boundaries and generated records are read-only in Django Admin so manual administrative edits cannot bypass automatic recalculation. Project names and descriptions remain editable there.
 
 ## Verification
 

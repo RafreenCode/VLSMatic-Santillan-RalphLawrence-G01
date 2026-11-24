@@ -14,6 +14,12 @@ class Role(models.Model):
 
     class Meta:
         ordering = ("code",)
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(code__in=("user", "admin")),
+                name="role_code_user_or_admin",
+            )
+        ]
 
     def __str__(self):
         return self.name
