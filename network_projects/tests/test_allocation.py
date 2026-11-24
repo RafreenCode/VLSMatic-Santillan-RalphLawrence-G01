@@ -81,3 +81,10 @@ class AllocationServiceTests(TestCase):
         allocate_project(project)
         self.assertEqual(requirement.allocation.prefix_length, 30)
 
+    def test_zero_prefix_supports_full_ipv4_capacity(self):
+        project = NetworkProject.objects.create(owner=self.project.owner, name="All IPv4", base_network="0.0.0.0", prefix_length=0)
+        requirement = SubnetRequirement.objects.create(project=project, name="Global", required_hosts=4_294_967_294)
+        allocate_project(project)
+        self.assertEqual(requirement.allocation.prefix_length, 0)
+        self.assertEqual(requirement.allocation.allocated_addresses, 4_294_967_296)
+

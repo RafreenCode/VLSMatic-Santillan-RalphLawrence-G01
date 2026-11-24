@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
@@ -29,12 +30,17 @@ class NetworkProjectModelTests(TestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             SubnetRequirement.objects.create(project=self.project, name="Lab A", required_hosts=20)
 
+    def test_subnet_names_are_unique_per_project_case_insensitively(self):
+        SubnetRequirement.objects.create(project=self.project, name="Lab A", required_hosts=30)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            SubnetRequirement.objects.create(project=self.project, name="lab a", required_hosts=20)
+
     def test_required_hosts_database_constraint(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             SubnetRequirement.objects.create(project=self.project, name="Invalid", required_hosts=0)
 
     def test_project_names_are_unique_per_owner_case_insensitively(self):
-        with self.assertRaises(IntegrityError), transaction.atomic():
+        with self.assertRaises(ValidationError):
             NetworkProject.objects.create(owner=self.user, name="laboratory PLAN", base_network="10.0.0.0", prefix_length=8)
 
     def test_run_and_allocations_cascade_with_project(self):
@@ -44,4 +50,22 @@ class NetworkProjectModelTests(TestCase):
         self.project.delete()
         self.assertFalse(CalculationRun.objects.exists())
         self.assertFalse(SubnetAllocation.objects.exists())
+
+    def test_project_model_rejects_misaligned_network(self):
+        project = NetworkProject(owner=self.user, name="Invalid", base_network="192.168.1.5", prefix_length=24)
+        with self.assertRaises(ValidationError):
+            project.full_clean()
+
+    def test_allocation_save_rejects_cross_project_relationship(self):
+        other = NetworkProject.objects.create(owner=self.user, name="Other", base_network="10.0.0.0", prefix_length=24)
+        requirement = SubnetRequirement.objects.create(project=other, name="Other lab", required_hosts=10)
+        run = CalculationRun.objects.create(project=self.project)
+        allocation = SubnetAllocation(run=run, requirement=requirement, network_address="192.168.10.0", prefix_length=28, subnet_mask="255.255.255.240", first_usable_address="192.168.10.1", last_usable_address="192.168.10.14", broadcast_address="192.168.10.15", allocated_addresses=16)
+        with self.assertRaises(ValidationError):
+            allocation.save()
+
+    def test_required_hosts_supports_full_zero_prefix_capacity(self):
+        project = NetworkProject.objects.create(owner=self.user, name="All IPv4", base_network="0.0.0.0", prefix_length=0)
+        requirement = SubnetRequirement.objects.create(project=project, name="Global", required_hosts=4_294_967_294)
+        self.assertEqual(requirement.required_hosts, 4_294_967_294)
 

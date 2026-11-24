@@ -1,4 +1,7 @@
+from ipaddress import IPv4Network
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
@@ -28,6 +31,20 @@ class NetworkProject(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        if self.base_network and self.prefix_length is not None:
+            try:
+                IPv4Network(self.cidr, strict=True)
+            except ValueError as error:
+                raise ValidationError(
+                    {"base_network": "Enter the network address for this prefix; host addresses are not accepted."}
+                ) from error
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
     @property
     def cidr(self):
         return f"{self.base_network}/{self.prefix_length}"
@@ -44,13 +61,13 @@ class SubnetRequirement(models.Model):
         related_name="requirements",
     )
     name = models.CharField(max_length=100)
-    required_hosts = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    required_hosts = models.PositiveBigIntegerField(validators=[MinValueValidator(1)])
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ("sort_order", "id")
         constraints = [
-            models.UniqueConstraint(fields=("project", "name"), name="unique_subnet_name_per_project"),
+            models.UniqueConstraint(Lower("name"), "project", name="unique_subnet_name_per_project_ci"),
             models.CheckConstraint(condition=models.Q(required_hosts__gte=1), name="required_hosts_at_least_one"),
         ]
         indexes = [models.Index(fields=("project", "sort_order"), name="requirement_project_order_idx")]
@@ -101,8 +118,11 @@ class SubnetAllocation(models.Model):
         return self.allocated_addresses - 2
 
     def clean(self):
-        from django.core.exceptions import ValidationError
-
+        super().clean()
         if self.run_id and self.requirement_id and self.run.project_id != self.requirement.project_id:
             raise ValidationError("The allocation, requirement, and calculation run must belong to the same project.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
