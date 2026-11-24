@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class NetworkProject(models.Model):
@@ -19,6 +20,10 @@ class NetworkProject(models.Model):
     class Meta:
         ordering = ("-updated_at", "name")
         indexes = [models.Index(fields=("owner", "updated_at"), name="project_owner_updated_idx")]
+        constraints = [
+            models.UniqueConstraint(Lower("name"), "owner", name="unique_project_name_per_owner_ci"),
+            models.CheckConstraint(condition=models.Q(prefix_length__gte=0, prefix_length__lte=30), name="project_prefix_0_30"),
+        ]
 
     def __str__(self):
         return self.name
@@ -29,7 +34,7 @@ class NetworkProject(models.Model):
 
     @property
     def has_allocations(self):
-        return self.requirements.filter(network_address__isnull=False).exists()
+        return hasattr(self, "calculation_run")
 
 
 class SubnetRequirement(models.Model):
@@ -41,13 +46,6 @@ class SubnetRequirement(models.Model):
     name = models.CharField(max_length=100)
     required_hosts = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     sort_order = models.PositiveIntegerField(default=0)
-    network_address = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
-    prefix_length = models.PositiveSmallIntegerField(null=True, blank=True)
-    subnet_mask = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
-    first_usable_address = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
-    last_usable_address = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
-    broadcast_address = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
-    allocated_capacity = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ("sort_order", "id")
@@ -60,19 +58,51 @@ class SubnetRequirement(models.Model):
     def __str__(self):
         return f"{self.name} ({self.required_hosts} hosts)"
 
-    def clear_allocation(self):
-        for field in self.allocation_fields():
-            setattr(self, field, None)
+    @property
+    def current_allocation(self):
+        try:
+            return self.allocation
+        except SubnetAllocation.DoesNotExist:
+            return None
 
-    @staticmethod
-    def allocation_fields():
-        return (
-            "network_address",
-            "prefix_length",
-            "subnet_mask",
-            "first_usable_address",
-            "last_usable_address",
-            "broadcast_address",
-            "allocated_capacity",
-        )
+
+class CalculationRun(models.Model):
+    project = models.OneToOneField(
+        NetworkProject, on_delete=models.CASCADE, related_name="calculation_run"
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Current plan for {self.project}"
+
+
+class SubnetAllocation(models.Model):
+    run = models.ForeignKey(CalculationRun, on_delete=models.CASCADE, related_name="allocations")
+    requirement = models.OneToOneField(
+        SubnetRequirement, on_delete=models.CASCADE, related_name="allocation"
+    )
+    network_address = models.GenericIPAddressField(protocol="IPv4")
+    prefix_length = models.PositiveSmallIntegerField()
+    subnet_mask = models.GenericIPAddressField(protocol="IPv4")
+    first_usable_address = models.GenericIPAddressField(protocol="IPv4")
+    last_usable_address = models.GenericIPAddressField(protocol="IPv4")
+    broadcast_address = models.GenericIPAddressField(protocol="IPv4")
+    allocated_addresses = models.PositiveBigIntegerField()
+
+    class Meta:
+        ordering = ("network_address",)
+        constraints = [
+            models.CheckConstraint(condition=models.Q(prefix_length__gte=0, prefix_length__lte=30), name="allocation_prefix_0_30"),
+            models.CheckConstraint(condition=models.Q(allocated_addresses__gte=4), name="allocation_minimum_four_addresses"),
+        ]
+
+    @property
+    def usable_capacity(self):
+        return self.allocated_addresses - 2
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.run_id and self.requirement_id and self.run.project_id != self.requirement.project_id:
+            raise ValidationError("The allocation, requirement, and calculation run must belong to the same project.")
 

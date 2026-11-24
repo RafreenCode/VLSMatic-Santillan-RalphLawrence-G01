@@ -7,6 +7,14 @@
     <div><h1>My network projects</h1><p>Build reusable IPv4 plans and keep every subnet allocation with the account that created it.</p></div>
     <a class="button button--primary button--link" href="{% url 'network_projects:create' %}">Create project</a>
   </header>
+  <form method="get" class="filter-form" aria-label="Filter projects">
+    <label><span>Project name</span>{{ filters.name }}</label>
+    <label><span>Base network</span>{{ filters.network }}</label>
+    <label><span>Created date</span>{{ filters.created_date }}</label>
+    <button class="button button--secondary" type="submit">Filter</button>
+    {% if filters_active %}<a href="{% url 'network_projects:list' %}">Clear filters</a>{% endif %}
+    {% if filters.errors %}<div class="form-alert" role="alert">{{ filters.errors }}</div>{% endif %}
+  </form>
   {% if projects %}
     <div class="project-ledger">
       <div class="project-ledger__head" aria-hidden="true"><span>Project</span><span>Network</span><span>Subnets</span><span>Updated</span></div>
@@ -17,6 +25,8 @@
         </a>
       {% endfor %}
     </div>
+  {% elif filters_active %}
+    <section class="empty-region"><h2>No projects match these filters</h2><p>Change or clear the filters to see your saved plans.</p><a class="button button--secondary" href="{% url 'network_projects:list' %}">Clear filters</a></section>
   {% else %}
     <section class="empty-region"><h2>Start with the network boundary</h2><p>Create a project, define its IPv4 network, then add the teams or rooms that need address space.</p><a class="button button--secondary" href="{% url 'network_projects:create' %}">Create your first project</a></section>
   {% endif %}

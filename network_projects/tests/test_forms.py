@@ -21,6 +21,10 @@ class NetworkProjectFormTests(TestCase):
         self.assertIn("base_network", form.errors)
         self.assertIn("prefix_length", form.errors)
 
+    def test_accepts_zero_prefix(self):
+        form = NetworkProjectForm(data={"name": "Internet", "description": "", "base_network": "0.0.0.0", "prefix_length": 0})
+        self.assertTrue(form.is_valid(), form.errors)
+
 
 class SubnetRequirementFormTests(TestCase):
     def setUp(self):

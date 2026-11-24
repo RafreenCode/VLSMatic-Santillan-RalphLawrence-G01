@@ -14,9 +14,9 @@ class NetworkProjectForm(forms.ModelForm):
     )
     prefix_length = forms.IntegerField(
         label="Prefix length",
-        min_value=8,
+        min_value=0,
         max_value=30,
-        help_text="Use a prefix from /8 through /30.",
+        help_text="Use a prefix from /0 through /30.",
         widget=forms.NumberInput(attrs={"placeholder": "24"}),
     )
 
@@ -28,10 +28,21 @@ class NetworkProjectForm(forms.ModelForm):
             "description": forms.Textarea(attrs={"rows": 4, "placeholder": "Optional planning notes"}),
         }
 
+    def __init__(self, *args, owner=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.owner = owner or getattr(self.instance, "owner", None)
+
     def clean_name(self):
         name = self.cleaned_data["name"].strip()
         if not name:
             raise ValidationError("Enter a project name.")
+        owner = self.owner
+        if owner:
+            matches = owner.network_projects.filter(name__iexact=name)
+            if self.instance.pk:
+                matches = matches.exclude(pk=self.instance.pk)
+            if matches.exists():
+                raise ValidationError("You already have a project with this name.")
         return name
 
     def clean(self):
@@ -51,13 +62,31 @@ class NetworkProjectForm(forms.ModelForm):
         return cleaned
 
 
+class ProjectFilterForm(forms.Form):
+    name = forms.CharField(required=False, max_length=120, label="Project name")
+    network = forms.CharField(required=False, label="Base network")
+    created_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+
+    def clean_network(self):
+        value = self.cleaned_data["network"].strip()
+        if not value:
+            return ""
+        try:
+            return str(IPv4Network(f"{value}/32", strict=False).network_address)
+        except (AddressValueError, NetmaskValueError, ValueError):
+            raise ValidationError("Enter a valid IPv4 address.")
+
 class SubnetRequirementForm(forms.ModelForm):
+    required_hosts = forms.IntegerField(
+        min_value=1,
+        widget=forms.NumberInput(attrs={"min": 1, "placeholder": "50"}),
+    )
+
     class Meta:
         model = SubnetRequirement
         fields = ("name", "required_hosts")
         widgets = {
             "name": forms.TextInput(attrs={"placeholder": "Computer laboratory"}),
-            "required_hosts": forms.NumberInput(attrs={"min": 1, "placeholder": "50"}),
         }
 
     def __init__(self, *args, project=None, **kwargs):

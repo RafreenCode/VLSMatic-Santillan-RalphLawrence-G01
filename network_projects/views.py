@@ -2,14 +2,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.models import User
 
-from .forms import NetworkProjectForm, SubnetRequirementForm
+from .forms import NetworkProjectForm, ProjectFilterForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
-from .services import AllocationError, allocate_project
+from .services import AllocationError, allocate_project, project_summary
 
 
 def _owned_project(request, project_id):
@@ -28,32 +29,28 @@ def _owned_requirement(request, requirement_id):
     )
 
 
-def _clear_project_allocations(project):
-    project.requirements.update(
-        network_address=None,
-        prefix_length=None,
-        subnet_mask=None,
-        first_usable_address=None,
-        last_usable_address=None,
-        broadcast_address=None,
-        allocated_capacity=None,
-    )
-
-
 @login_required
 def project_list(request):
     if request.user.role == User.Role.ADMIN:
         projects = NetworkProject.objects.select_related("owner").annotate(requirement_count=Count("requirements"))
         return render(request, "network_projects/admin_project_list.html", {"projects": projects})
     projects = request.user.network_projects.annotate(requirement_count=Count("requirements"))
-    return render(request, "network_projects/project_list.html", {"projects": projects})
+    filters = ProjectFilterForm(request.GET or None)
+    if filters.is_valid():
+        if filters.cleaned_data["name"]:
+            projects = projects.filter(name__icontains=filters.cleaned_data["name"])
+        if filters.cleaned_data["network"]:
+            projects = projects.filter(base_network=filters.cleaned_data["network"])
+        if filters.cleaned_data["created_date"]:
+            projects = projects.filter(created_at__date=filters.cleaned_data["created_date"])
+    return render(request, "network_projects/project_list.html", {"projects": projects, "filters": filters, "filters_active": bool(request.GET)})
 
 
 @login_required
 def project_create(request):
     if request.user.role != User.Role.USER:
         return redirect("network_projects:list")
-    form = NetworkProjectForm(request.POST or None)
+    form = NetworkProjectForm(request.POST or None, owner=request.user)
     if request.method == "POST" and form.is_valid():
         project = form.save(commit=False)
         project.owner = request.user
@@ -71,10 +68,11 @@ def project_detail(request, project_id):
     else:
         project = _owned_project(request, project_id)
         read_only = False
+    requirements = list(project.requirements.select_related("allocation").all())
     return render(
         request,
         "network_projects/project_detail.html",
-        {"project": project, "requirements": project.requirements.all(), "read_only": read_only},
+        {"project": project, "requirements": requirements, "summary": project_summary(project, requirements), "read_only": read_only},
     )
 
 
@@ -82,17 +80,22 @@ def project_detail(request, project_id):
 def project_update(request, project_id):
     project = _owned_project(request, project_id)
     original_network = (project.base_network, project.prefix_length)
-    form = NetworkProjectForm(request.POST or None, instance=project)
+    form = NetworkProjectForm(request.POST or None, instance=project, owner=request.user)
     if request.method == "POST" and form.is_valid():
         network_changed = original_network != (
             form.cleaned_data["base_network"],
             form.cleaned_data["prefix_length"],
         )
-        project = form.save()
-        if network_changed:
-            _clear_project_allocations(project)
-        messages.success(request, "Project updated. Generate the allocation again if its network changed.")
-        return redirect("network_projects:detail", project_id=project.pk)
+        try:
+            with transaction.atomic():
+                project = form.save()
+                if network_changed and project.requirements.exists():
+                    allocate_project(project)
+        except AllocationError as error:
+            form.add_error(None, error.messages[0])
+        else:
+            messages.success(request, "Project updated and its allocation recalculated.")
+            return redirect("network_projects:detail", project_id=project.pk)
     return render(request, "network_projects/project_form.html", {"form": form, "project": project, "heading": "Edit project"})
 
 
@@ -111,13 +114,18 @@ def requirement_create(request, project_id):
     project = _owned_project(request, project_id)
     form = SubnetRequirementForm(request.POST or None, project=project)
     if request.method == "POST" and form.is_valid():
-        requirement = form.save(commit=False)
-        requirement.project = project
-        requirement.sort_order = project.requirements.count()
-        requirement.save()
-        _clear_project_allocations(project)
-        messages.success(request, "Subnet requirement added.")
-        return redirect("network_projects:detail", project_id=project.pk)
+        try:
+            with transaction.atomic():
+                requirement = form.save(commit=False)
+                requirement.project = project
+                requirement.sort_order = project.requirements.count()
+                requirement.save()
+                allocate_project(project)
+        except AllocationError as error:
+            form.add_error(None, error.messages[0])
+        else:
+            messages.success(request, "Subnet requirement added and the plan recalculated.")
+            return redirect("network_projects:detail", project_id=project.pk)
     return render(request, "network_projects/requirement_form.html", {"form": form, "project": project, "heading": "Add a subnet requirement"})
 
 
@@ -126,10 +134,15 @@ def requirement_update(request, requirement_id):
     requirement = _owned_requirement(request, requirement_id)
     form = SubnetRequirementForm(request.POST or None, instance=requirement, project=requirement.project)
     if request.method == "POST" and form.is_valid():
-        form.save()
-        _clear_project_allocations(requirement.project)
-        messages.success(request, "Subnet requirement updated.")
-        return redirect("network_projects:detail", project_id=requirement.project_id)
+        try:
+            with transaction.atomic():
+                form.save()
+                allocate_project(requirement.project)
+        except AllocationError as error:
+            form.add_error(None, error.messages[0])
+        else:
+            messages.success(request, "Subnet requirement updated and the plan recalculated.")
+            return redirect("network_projects:detail", project_id=requirement.project_id)
     return render(request, "network_projects/requirement_form.html", {"form": form, "project": requirement.project, "requirement": requirement, "heading": "Edit subnet requirement"})
 
 
@@ -138,9 +151,10 @@ def requirement_delete(request, requirement_id):
     requirement = _owned_requirement(request, requirement_id)
     project = requirement.project
     if request.method == "POST":
-        requirement.delete()
-        _clear_project_allocations(project)
-        messages.success(request, "Subnet requirement deleted.")
+        with transaction.atomic():
+            requirement.delete()
+            allocate_project(project, allow_empty=True)
+        messages.success(request, "Subnet requirement deleted and the plan recalculated.")
         return redirect("network_projects:detail", project_id=project.pk)
     return render(request, "network_projects/requirement_confirm_delete.html", {"requirement": requirement, "project": project})
 

@@ -1,257 +1,96 @@
 # VLSMatic Database Reference
 
-This document explains the PostgreSQL schema used by VLSMatic. Supabase hosts the database, while Django models and migrations remain the schema's source of truth.
+VLSMatic uses Django migrations as the source of truth for its PostgreSQL/Supabase schema. The application implements the six logical entities specified by the SDD: roles, users, projects, subnet requirements, calculation runs, and subnet allocations.
 
-## Maintenance requirement
+## Schema rules
 
-This document must be updated whenever a pull request does any of the following:
+- Apply changes with `python manage.py makemigrations` and `python manage.py migrate`; do not edit production tables manually.
+- Update this document whenever a model, field, constraint, relationship, role, or storage behavior changes.
+- Django framework authentication, permission, session, content-type, admin-log, and migration tables remain present in addition to the six application entities.
 
-- Creates, renames, or removes a model or database table
-- Adds, renames, changes, or removes a model field
-- Changes a primary key, foreign key, unique constraint, check constraint, or index
-- Changes how sessions, permissions, roles, or stored records are used
-- Adds Supabase-specific database behavior such as Row Level Security, functions, triggers, or storage metadata
-
-The documentation update must be included in the same branch and pull request as the related model and migration changes. A database change is not considered complete until its migration, tests, and this reference agree.
-
-## Schema ownership
-
-VLSMatic uses Django's migration system to manage the `public` PostgreSQL schema. Schema changes should be expressed through Django models and migration files, then applied with:
-
-```powershell
-python manage.py makemigrations
-python manage.py migrate
-```
-
-Do not make undocumented table or column changes manually in the Supabase Table Editor. Manual changes can cause the live schema and Django migration history to disagree.
-
-## Current relationships
+## Application relationships
 
 ```text
-accounts_user
-├── accounts_user_groups ─────────── auth_group
-├── accounts_user_user_permissions ─ auth_permission
-├── django_admin_log
-└── django_session (logical session ownership through encoded session data)
-
-auth_group ── auth_group_permissions ── auth_permission
-auth_permission ── django_content_type
-django_admin_log ── django_content_type
+accounts_role 1 ----- M accounts_user
+accounts_user 1 ----- M network_projects_networkproject
+network_projects_networkproject 1 ----- M network_projects_subnetrequirement
+network_projects_networkproject 1 ----- 0..1 network_projects_calculationrun
+network_projects_calculationrun 1 ----- M network_projects_subnetallocation
+network_projects_subnetrequirement 1 ----- 0..1 network_projects_subnetallocation
 ```
 
-`django_migrations` independently records the migration history used to construct the schema.
+All parent relationships use database foreign keys. Deleting a user cascades through owned projects and planning data. Roles are protected from deletion while assigned to a user.
 
-## Application table
+## `accounts_role`
 
-### `accounts_user`
+| Column | Rules | Purpose |
+| --- | --- | --- |
+| `code` | Primary key, varchar(10) | Stable `user` or `admin` code |
+| `name` | Required, varchar(50) | Display name |
 
-The central VLSMatic account table. It is generated from the custom `accounts.User` model, which extends Django's `AbstractUser`.
+The migration seeds Regular User and Administrator records. Public registration always assigns the Regular User role.
 
-| Column | Purpose |
-| --- | --- |
-| `id` | Primary key for the account |
-| `password` | Django password hash; never contains a plain-text password |
-| `last_login` | Timestamp of the most recent successful login, when available |
-| `is_superuser` | Grants all Django permissions without individual permission assignments |
-| `username` | Unique login name |
-| `first_name` | Optional given name shown in the profile and dashboard |
-| `last_name` | Optional family name shown in the profile |
-| `is_staff` | Allows access to Django Admin when combined with appropriate permissions |
-| `is_active` | Controls whether the account is considered active without deleting it |
-| `date_joined` | Timestamp recording when the account was created |
-| `email` | Required unique email address used by registration and profile management |
-| `role` | VLSMatic role: `user` or `admin`; controls dashboard routing and authorization |
-| `contact_number` | Optional profile contact number |
-| `profile_photo_path` | Object path of the user's image in the Supabase Storage `profile-photos` bucket; blank when no photo is set |
+## `accounts_user`
 
-Important constraints and indexes:
+This custom Django user table stores the normal `AbstractUser` authentication fields plus unique `email`, required `role_code`, optional `contact_number`, and optional `profile_photo_path`. `role_code` is a protected foreign key to `accounts_role`. Passwords contain Django hashes, never plaintext.
 
-- Primary key on `id`
-- Unique constraints and indexes on `username` and `email`
-- Pattern indexes on `username` and `email` for efficient text lookups
+Profile images are stored locally or in the configured Supabase Storage bucket; PostgreSQL stores only their object path. Django's group and permission junction tables continue to support staff authorization.
 
-Application behavior:
+## `network_projects_networkproject`
 
-- Public registration always creates the `user` role.
-- The `promote_admin` management command assigns the `admin` role and enables `is_staff`.
-- Profile editing exposes only first name, last name, email, contact number, and a validated profile-photo upload/removal control.
-- Image bytes are stored in Supabase Storage, not PostgreSQL. The database retains only the owning user's object path.
-- Accepted uploads are orientation-corrected, center-cropped, stripped of unnecessary metadata, and encoded as 512-by-512 WebP images before storage.
-- Role, username, staff status, and superuser status cannot be changed through the public profile form.
+| Column | Rules | Purpose |
+| --- | --- | --- |
+| `id` | Primary key | Project identifier |
+| `owner_id` | Required FK, cascade | Owning account |
+| `name` | Required, varchar(120) | Owner-visible project name |
+| `description` | Optional, max 1,000 | Planning notes |
+| `base_network` | Required IPv4 | Aligned network address |
+| `prefix_length` | Check 0 through 30 | Base CIDR prefix |
+| `created_at`, `updated_at` | Required timestamps | Audit dates |
 
-## Authorization tables
+Project names are case-insensitively unique per owner. Application validation requires the address to be the boundary for its prefix. The owner/update index supports the project ledger.
 
-These tables are created by Django's authentication framework. They are valid even when some currently contain no rows.
+## `network_projects_subnetrequirement`
 
-### `auth_group`
+| Column | Rules | Purpose |
+| --- | --- | --- |
+| `id` | Primary key | Requirement identifier |
+| `project_id` | Required FK, cascade | Parent project |
+| `name` | Required, varchar(100) | Subnet label |
+| `required_hosts` | Check at least 1 | Required usable hosts |
+| `sort_order` | Non-negative | Stable input order |
 
-Stores named permission groups. Groups allow several permissions to be assigned as a reusable set. VLSMatic currently uses its custom `role` field for dashboard access, but Django Admin and future granular authorization can use groups.
+Names are unique within a project. Allocation results are deliberately stored separately rather than mixed into requirement inputs.
 
-Key rules:
+## `network_projects_calculationrun`
 
-- Primary key on `id`
-- Unique group `name`
+| Column | Rules | Purpose |
+| --- | --- | --- |
+| `id` | Primary key | Run identifier |
+| `project_id` | Required one-to-one FK, cascade | The project whose current plan this represents |
+| `generated_at` | Required timestamp | Replacement time |
 
-### `auth_permission`
+A project has no run before it has requirements and exactly one current run after successful allocation. Recalculation atomically replaces the old run; historical runs are outside the current scope.
 
-Stores Django model permissions such as add, change, delete, and view. Django creates these records for installed models and uses them for staff and admin authorization.
+## `network_projects_subnetallocation`
 
-Key columns:
+| Column | Rules | Purpose |
+| --- | --- | --- |
+| `id` | Primary key | Allocation identifier |
+| `run_id` | Required FK, cascade | Current calculation run |
+| `requirement_id` | Required one-to-one FK, cascade | Represented requirement |
+| `network_address` | Required IPv4 | Calculated subnet boundary |
+| `prefix_length` | Check 0 through 30 | Calculated prefix |
+| `subnet_mask` | Required IPv4 | Dotted-decimal mask |
+| `first_usable_address`, `last_usable_address` | Required IPv4 | Host range |
+| `broadcast_address` | Required IPv4 | Broadcast address |
+| `allocated_addresses` | Check at least 4 | Full block size including network and broadcast |
 
-- `name`: human-readable permission name
-- `content_type_id`: model to which the permission applies
-- `codename`: programmatic permission identifier
+The allocation service verifies that the run and requirement share a project, processes requirements largest-first, selects the smallest fitting block, prevents overlap and overflow, and replaces all current allocations in one transaction.
 
-Key rules:
+## Verification
 
-- Foreign key to `django_content_type`
-- Unique combination of `content_type_id` and `codename`
-
-### `accounts_user_groups`
-
-Junction table connecting VLSMatic accounts to Django groups. It implements the many-to-many relationship between `accounts_user` and `auth_group`.
-
-Key rules:
-
-- Foreign key from `user_id` to `accounts_user`
-- Foreign key from `group_id` to `auth_group`
-- Unique combination of `user_id` and `group_id`, preventing duplicate membership
-
-### `accounts_user_user_permissions`
-
-Junction table connecting an individual account directly to Django permissions without requiring a group.
-
-Key rules:
-
-- Foreign key from `user_id` to `accounts_user`
-- Foreign key from `permission_id` to `auth_permission`
-- Unique combination of `user_id` and `permission_id`, preventing duplicate assignments
-
-### `auth_group_permissions`
-
-Junction table connecting Django groups to the permissions granted to those groups.
-
-Key rules:
-
-- Foreign key from `group_id` to `auth_group`
-- Foreign key from `permission_id` to `auth_permission`
-- Unique combination of `group_id` and `permission_id`, preventing duplicate assignments
-
-## Django framework tables
-
-### `django_session`
-
-Stores database-backed login sessions. Django sends the browser only a session identifier; session data remains in PostgreSQL.
-
-Key columns:
-
-- `session_key`: primary key used by the session cookie
-- `session_data`: signed and encoded session contents
-- `expire_date`: expiration timestamp used to reject and clean up old sessions
-
-An index on `expire_date` supports efficient session cleanup.
-
-### `django_admin_log`
-
-Records changes performed through Django Admin, providing an administrative audit history.
-
-Key columns:
-
-- `action_time`: when the action occurred
-- `user_id`: administrator who performed the action
-- `content_type_id`: affected model, when available
-- `object_id` and `object_repr`: affected record identification
-- `action_flag`: addition, change, or deletion category
-- `change_message`: description of the change
-
-The table has foreign keys to `accounts_user` and `django_content_type`.
-
-### `django_content_type`
-
-Catalogs installed Django models by application label and model name. Permissions and generic administrative references use this catalog to identify model types.
-
-Key rules:
-
-- Primary key on `id`
-- Unique combination of `app_label` and `model`
-
-### `django_migrations`
-
-Records every Django migration applied to the database. Django consults this table to determine which schema operations remain pending.
-
-Key columns:
-
-- `app`: Django application that owns the migration
-- `name`: migration identifier
-- `applied`: timestamp when the migration completed
-
-Do not edit or delete migration-history rows manually.
-
-## Network planning tables
-
-### `network_projects_networkproject`
-
-Stores an authenticated user's saved IPv4 planning project.
-
-| Column | Purpose |
-| --- | --- |
-| `id` | Primary key |
-| `owner_id` | Foreign key to `accounts_user`; establishes record ownership |
-| `name` | Required project name, up to 120 characters |
-| `description` | Optional planning notes, up to 1,000 characters |
-| `base_network` | Normalized IPv4 network address |
-| `prefix_length` | CIDR prefix validated by the application from `/8` through `/30` |
-| `created_at` | Creation timestamp |
-| `updated_at` | Last modification timestamp |
-
-The `project_owner_updated_idx` index supports each user's project list ordered by recent activity. Deleting a user cascade-deletes that user's projects. Application views always include ownership in regular-user object queries; administrators receive a read-only cross-project overview.
-
-### `network_projects_subnetrequirement`
-
-Stores a requested subnet and its latest persisted VLSM allocation.
-
-| Column | Purpose |
-| --- | --- |
-| `id` | Primary key |
-| `project_id` | Foreign key to the parent network project |
-| `name` | Human-readable subnet name |
-| `required_hosts` | Required usable host capacity |
-| `sort_order` | Stable entry order before largest-first calculation |
-| `network_address` | Calculated subnet address; null before allocation |
-| `prefix_length` | Calculated CIDR prefix; null before allocation |
-| `subnet_mask` | Calculated dotted-decimal mask; null before allocation |
-| `first_usable_address` | First usable host address; null before allocation |
-| `last_usable_address` | Last usable host address; null before allocation |
-| `broadcast_address` | Calculated broadcast address; null before allocation |
-| `allocated_capacity` | Calculated usable-host capacity; null before allocation |
-
-Important rules:
-
-- `required_hosts_at_least_one` enforces a positive host requirement.
-- `unique_subnet_name_per_project` prevents duplicate names within one project.
-- `requirement_project_order_idx` supports ordered requirement retrieval.
-- Deleting a project cascade-deletes all requirements and allocation results.
-- Editing project boundaries or requirements clears saved allocation fields so stale results are not presented as current.
-- The allocation service updates all results inside one database transaction.
-
-## Tables intentionally not present
-
-The `dashboard` application has no models because it reads and presents information without owning persistent data. Report, export, comparison, and address-canvas tables remain outside the PD2 increment.
-
-## Supabase and security notes
-
-- Supabase provides managed PostgreSQL; Django remains the only application data-access layer.
-- Database credentials and connection URLs belong in `.env` locally and Vercel environment variables in production.
-- The local application uses the Supabase Session Pooler on port `5432`.
-- Serverless production uses the Transaction Pooler on port `6543` with prepared statements disabled.
-- Row Level Security is not currently required because browsers do not query Supabase directly. RLS policies must be designed and documented before any direct Supabase client access is introduced.
-- Profile-photo uploads are sent to Supabase Storage by the Django server with a secret key. The `profile-photos` bucket is public for image delivery, while upload and deletion credentials remain server-only.
-- Profile-photo objects use the path `users/<user-id>/<random-name>.<extension>` so ownership is explicit and replacements do not collide.
-- Production data must never be used as a test database.
-
-## Verification checklist
-
-After any database-related change:
+After database changes run:
 
 ```powershell
 python manage.py makemigrations --check --dry-run
@@ -259,10 +98,4 @@ python manage.py migrate --check
 python manage.py test
 ```
 
-Also confirm that:
-
-- The migration file is committed.
-- The live migration is applied through an authorized process.
-- Constraints and indexes match the model's integrity requirements.
-- Forms and authorization rules expose only intended fields.
-- `DATABASE.md` describes the resulting schema accurately.
+Tests must use an isolated database and must never target production data.
