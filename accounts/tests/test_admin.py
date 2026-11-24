@@ -45,5 +45,5 @@ class AdminInterfaceTests(TestCase):
 
         self.assertIsInstance(user_admin, VLSMaticUserAdmin)
         self.assertIn("email", user_admin.search_fields)
-        self.assertIn("role", user_admin.list_filter)
+        self.assertIn("role_record", user_admin.list_filter)
         self.assertIn("date_joined", user_admin.readonly_fields)

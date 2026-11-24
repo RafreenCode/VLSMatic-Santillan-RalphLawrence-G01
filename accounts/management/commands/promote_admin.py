@@ -17,5 +17,5 @@ class Command(BaseCommand):
 
         user.role = User.Role.ADMIN
         user.is_staff = True
-        user.save(update_fields=["role", "is_staff"])
+        user.save(update_fields=["role_record", "is_staff"])
         self.stdout.write(self.style.SUCCESS(f"{user.username} is now a VLSMatic administrator."))

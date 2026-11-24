@@ -58,13 +58,39 @@ class ProjectViewTests(TestCase):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get(reverse("network_projects:calculate", args=[self.project.pk])).status_code, 405)
         response = self.client.post(reverse("network_projects:calculate", args=[self.project.pk]))
-        requirement.refresh_from_db()
         self.assertRedirects(response, reverse("network_projects:detail", args=[self.project.pk]))
-        self.assertEqual(requirement.network_address, "192.168.1.0")
-        self.assertEqual(requirement.prefix_length, 26)
+        self.assertEqual(requirement.allocation.network_address, "192.168.1.0")
+        self.assertEqual(requirement.allocation.prefix_length, 26)
 
     def test_user_cannot_calculate_another_users_project(self):
         self.client.force_login(self.user)
         response = self.client.post(reverse("network_projects:calculate", args=[self.other_project.pk]))
         self.assertEqual(response.status_code, 404)
+
+    def test_project_filters_are_cumulative(self):
+        NetworkProject.objects.create(owner=self.user, name="Branch plan", base_network="172.16.0.0", prefix_length=16)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:list"), {"name": "branch", "network": "172.16.0.0"})
+        self.assertContains(response, "Branch plan")
+        self.assertNotContains(response, "My plan")
+
+    def test_invalid_network_filter_shows_feedback(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:list"), {"network": "invalid"})
+        self.assertContains(response, "Enter a valid IPv4 address")
+
+    def test_failed_automatic_recalculation_rolls_back_requirement_edit(self):
+        first = SubnetRequirement.objects.create(project=self.project, name="First", required_hosts=100)
+        second = SubnetRequirement.objects.create(project=self.project, name="Second", required_hosts=100)
+        from network_projects.services import allocate_project
+        allocate_project(self.project)
+        old_run = self.project.calculation_run.pk
+        self.client.force_login(self.user)
+        response = self.client.post(reverse("network_projects:requirement_update", args=[second.pk]), {"name": "Second", "required_hosts": 200})
+        second.refresh_from_db()
+        self.project.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(second.required_hosts, 100)
+        self.assertEqual(self.project.calculation_run.pk, old_run)
+        self.assertContains(response, "exceed this network")
 
