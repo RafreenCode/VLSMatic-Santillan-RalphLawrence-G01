@@ -25,10 +25,14 @@ class RegistrationTests(TestCase):
         self.assertTrue(user.check_password(self.valid_data["password1"]))
         self.assertNotEqual(user.password, self.valid_data["password1"])
 
-    def test_registration_uses_official_wordmark(self):
+    def test_registration_uses_official_logo_lockup(self):
         response = self.client.get(self.url)
-        self.assertContains(response, 'src="/static/img/vlsmatic-wordmark.png"')
+        self.assertContains(response, 'src="/static/img/vlsmatic-logo.png"')
         self.assertNotContains(response, 'class="wordmark__mark"')
+
+    def test_registration_links_to_login_page(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, f'href="{reverse("accounts:login")}"')
 
     def test_required_fields_are_validated(self):
         response = self.client.post(self.url, {})

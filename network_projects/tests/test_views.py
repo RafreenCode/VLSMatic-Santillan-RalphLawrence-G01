@@ -114,5 +114,34 @@ class ProjectViewTests(TestCase):
         response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
         self.assertEqual(response.context["visualization_data"], [])
         self.assertContains(response, "No subnet requirements yet")
-        self.assertContains(response, "All saved allocation values remain available")
+        self.assertContains(response, "The saved allocation remains visible above")
+
+    def test_navigation_marks_active_projects_section(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:list"))
+        self.assertContains(response, f'href="{reverse("network_projects:list")}" aria-current="page"')
+
+    def test_detail_renders_server_side_proportional_segments(self):
+        SubnetRequirement.objects.create(project=self.project, name="Studio", required_hosts=30)
+        from network_projects.services import allocate_project
+        allocate_project(self.project)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
+        self.assertContains(response, 'class="hero-seg hero-seg--0 is-selected"')
+        self.assertContains(response, 'style="flex-grow: 32"')
+        self.assertContains(response, "Studio, 192.168.1.0/27, 32 addresses")
+
+    def test_detail_renders_modern_controls_brand_lockup_and_copy_actions(self):
+        SubnetRequirement.objects.create(project=self.project, name="Studio", required_hosts=30)
+        from network_projects.services import allocate_project
+        allocate_project(self.project)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
+        self.assertContains(response, 'src="/static/img/vlsmatic-logo.png"')
+        self.assertNotContains(response, "vlsmatic-icon.png")
+        self.assertNotContains(response, "vlsmatic-wordmark.png")
+        self.assertContains(response, 'class="back-pill"')
+        self.assertContains(response, 'class="button button--danger-ghost"')
+        self.assertContains(response, 'data-copy-value="192.168.1.0/27"')
+        self.assertContains(response, 'data-map-tooltip')
 

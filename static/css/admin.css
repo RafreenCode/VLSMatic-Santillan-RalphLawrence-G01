@@ -104,13 +104,11 @@ a { text-underline-offset: 0.2em; text-decoration-thickness: 0.08em; }
 }
 
 #branding { min-width: 220px; }
-#site-name a { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+#site-name a { display: inline-flex; align-items: center; gap: 14px; text-decoration: none; }
+.admin-logo { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 10px; background: #fff; }
+.admin-logo .brand-logo__image { display: block; height: 30px; width: auto; }
 .admin-brand-copy { display: flex; flex-direction: column; line-height: 1.05; }
-.admin-brand-copy strong { font-size: 1.18rem; letter-spacing: -0.02em; }
-.admin-brand-copy small { margin-top: 5px; color: #b9ceca; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-.admin-mark { display: grid; grid-template-columns: repeat(2, 8px); grid-template-rows: repeat(2, 8px); gap: 2px; }
-.admin-mark i { display: block; background: #e4a836; }
-.admin-mark i:nth-child(2), .admin-mark i:nth-child(3) { background: #4ba094; }
+.admin-brand-copy small { color: #b9ceca; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 
 #user-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; color: #c7d7d4; font-size: 0.78rem; letter-spacing: 0; text-transform: none; }
 #user-tools a, #user-tools button { padding: 7px 9px; border-radius: 7px; font-weight: 700; }

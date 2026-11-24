@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Your profile · VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
 <main id="main-content" class="profile-shell">
   <header class="profile-heading">
-    <a href="{% url 'dashboard:home' %}">← Back to dashboard</a>
+    <a class="back-pill" href="{% url 'dashboard:home' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>Back to dashboard</span></a>
     <h1>Your profile boundary</h1>
     <p>These details belong only to your signed-in account. Role and administrative privileges cannot be changed here.</p>
   </header>
@@ -28,8 +29,8 @@
             <div class="profile-photo-copy">
               <p>Choose a clear image. We crop and resize it automatically for a consistent profile.</p>
               <div class="profile-photo-actions">
-                <button class="button button--upload" type="button" data-profile-photo-trigger>Upload new photo</button>
-                <input type="file" name="{{ form.profile_photo.html_name }}" accept="image/jpeg,image/png,image/webp" id="{{ form.profile_photo.id_for_label }}" data-profile-photo-input hidden>
+                <input class="sr-only" type="file" name="{{ form.profile_photo.html_name }}" accept="image/jpeg,image/png,image/webp" id="{{ form.profile_photo.id_for_label }}" data-profile-photo-input>
+                <label class="button button--upload" for="{{ form.profile_photo.id_for_label }}" data-profile-photo-trigger>Upload new photo</label>
                 <span class="profile-photo-filename" data-profile-photo-filename>JPEG, PNG, or WebP · up to 5 MB</span>
               </div>
               {% if user.profile_photo_path %}
@@ -53,7 +54,7 @@
     </section>
     <aside class="profile-access-region">
       <h2>Protected access</h2>
-      <dl><div><dt>Username</dt><dd>{{ user.username }}</dd></div><div><dt>Role</dt><dd>{{ user.get_role_display }}</dd></div></dl>
+      <dl><div><dt>Username</dt><dd>{{ user.username }}</dd></div><div><dt>Role</dt><dd>{{ user.role_record.name }}</dd></div></dl>
       <p>These values are intentionally outside the profile form. Contact an authorized administrator if access must change.</p>
     </aside>
   </div>
@@ -85,4 +86,4 @@
   </form>
 </dialog>
 {% endblock %}
-{% block scripts %}<script src="{% static 'js/profile-photo.js' %}" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'js/profile-photo.js' %}{{ static_version_query }}" defer></script>{% endblock %}

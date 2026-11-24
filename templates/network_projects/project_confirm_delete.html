@@ -1,3 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Delete {{ project.name }} · VLSMatic{% endblock %}
-{% block layout %}{% include "accounts/partials/app_header.html" %}<main id="main-content" class="studio-shell danger-shell"><header class="editor-heading"><a class="back-link" href="{% url 'network_projects:detail' project.id %}">Back to project</a><h1>Delete {{ project.name }}?</h1><p>This permanently removes the project, all subnet requirements, and all saved allocation results.</p></header><section class="studio-form-region danger-confirm"><strong>This action cannot be undone.</strong><p>Project boundary: <code>{{ project.cidr }}</code></p><form method="post">{% csrf_token %}<div class="form-actions"><button class="button button--danger" type="submit">Delete project</button><a href="{% url 'network_projects:detail' project.id %}">Keep project</a></div></form></section></main>{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell danger-shell">
+  <header class="editor-heading">
+    <a class="back-pill" href="{% url 'network_projects:detail' project.id %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>Back to project</span></a>
+    <h1>Delete {{ project.name }}?</h1>
+    <p>This permanently removes the project, all subnet requirements, and all saved allocation results.</p>
+  </header>
+  <section class="studio-form-region danger-confirm">
+    <strong>This action cannot be undone.</strong>
+    <p>Project boundary: <code>{{ project.cidr }}</code></p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button class="button button--danger" type="submit">Delete project</button>
+        <a class="button button--quiet" href="{% url 'network_projects:detail' project.id %}">Keep project</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

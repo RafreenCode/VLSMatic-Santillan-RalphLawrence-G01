@@ -5,56 +5,267 @@
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
 <main id="main-content" class="studio-shell dashboard-studio" data-dashboard>
-  <header class="launch-header" data-motion-region>
+  <header class="launch-header">
     <div class="launch-header__copy">
+      <span class="console-status-pill"><i aria-hidden="true"></i>IPv4 Planning Command Deck</span>
       <h1>Plan the network.<br>See every address.</h1>
-      <p>Welcome back, {{ user.first_name|default:user.username }}. Continue a saved IPv4 plan or define a new boundary.</p>
+      <p>Welcome back, {{ user.first_name|default:user.username }}. Inspect live subnet boundaries right from your deck, switch saved plans, or launch a new IPv4 workspace.</p>
       <div class="launch-actions">
-        <a class="button button--brand" href="{% url 'network_projects:create' %}">New network project</a>
-        {% if resume_project %}<a class="button button--quiet" href="{% url 'network_projects:detail' resume_project.id %}">Resume {{ resume_project.name }}</a>{% endif %}
+        <a class="button button--brand" href="{% url 'network_projects:create' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New network project</span></a>
+        {% if resume_project %}
+          <a class="button button--quiet" href="{% url 'network_projects:detail' resume_project.id %}" data-hero-resume-btn><span>Resume {{ resume_project.name }}</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+        {% endif %}
       </div>
     </div>
+
     {% if resume_project %}
-      <section class="hero-plan" aria-labelledby="hero-plan-title" data-plan-preview>
-        <div class="hero-plan__heading"><div><span>Latest saved plan</span><h2 id="hero-plan-title">{{ resume_project.name }}</h2><code>{{ resume_project.cidr }}</code></div><strong>{{ resume_summary.address_consumption|floatformat:1 }}% used</strong></div>
-        <div class="hero-plan__track" aria-label="{{ resume_summary.allocated_addresses }} of {{ resume_summary.total_addresses }} addresses allocated">
-          {% for allocation in resume_visualization %}<i class="hero-plan__segment hero-plan__segment--{% cycle 'a' 'b' 'c' 'd' %}" style="--offset: {{ allocation.relative_offset }}; --span: {{ allocation.relative_span }}" title="{{ allocation.name }}: {{ allocation.network }}/{{ allocation.prefix }}"></i>{% empty %}<span class="hero-plan__empty">Requirements are waiting for a valid allocation.</span>{% endfor %}
+      <section class="hero-plan" aria-labelledby="hero-plan-title" data-plan-preview data-active-project-id="{{ resume_project.id }}">
+        {% if recent_projects|length > 1 %}
+          <div class="hero-plan__switcher" role="tablist" aria-label="Switch previewed project">
+            {% for project in recent_projects %}
+              <button type="button" role="tab" class="hero-switcher-pill{% if project.id == resume_project.id %} is-active{% endif %}" aria-selected="{% if project.id == resume_project.id %}true{% else %}false{% endif %}" data-switch-project="{{ project.id }}">{{ project.name }}</button>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="hero-plan__heading">
+          <div>
+            <span>Latest saved plan</span>
+            <h2 id="hero-plan-title" data-hero-title>{{ resume_project.name }}</h2>
+            <div class="hero-plan__cidr-row">
+              <button type="button" class="cidr-pill-btn" data-copy-value="{{ resume_project.cidr }}" data-hero-cidr-btn aria-label="Copy base network CIDR">
+                <code data-hero-cidr>{{ resume_project.cidr }}</code>
+                <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span class="sr-only" data-copy-label>Copy</span>
+              </button>
+            </div>
+          </div>
+          <strong class="stage-usage-pill" data-hero-usage>{{ resume_summary.address_consumption|floatformat:1 }}% used</strong>
         </div>
-        <dl><div><dt>Allocated</dt><dd>{{ resume_summary.allocated_addresses }}</dd></div><div><dt>Remaining</dt><dd>{{ resume_summary.remaining_addresses }}</dd></div><div><dt>Subnets</dt><dd>{{ resume_summary.subnet_count }}</dd></div></dl>
-        <a class="hero-plan__link" href="{% url 'network_projects:detail' resume_project.id %}">{% if resume_visualization %}Open plan{% else %}Finish allocation{% endif %} <span aria-hidden="true"></span></a>
+
+        <div class="hero-plan__stage" data-dashboard-stage>
+          <div class="map-tooltip" data-dashboard-tooltip hidden></div>
+          <div class="hero-plan__track" data-dashboard-track>
+            <div class="hero-seg-bar" data-dashboard-segbar role="group" aria-label="{{ resume_summary.allocated_addresses }} of {{ resume_summary.total_addresses }} addresses allocated"></div>
+            <span class="hero-plan__empty" data-dashboard-empty{% if resume_visualization %} hidden{% endif %}>Requirements are waiting for a valid allocation.</span>
+            <noscript>
+              {% if resume_visualization %}
+                <svg class="hero-plan__svg" viewBox="0 0 1 1" preserveAspectRatio="none" role="img" aria-label="{{ resume_summary.allocated_addresses }} of {{ resume_summary.total_addresses }} addresses allocated">
+                  {% for allocation in resume_visualization %}
+                    <rect class="hero-plan__segment hero-plan__segment--{% cycle 'a' 'b' 'c' 'd' %}" x="{{ allocation.relative_offset }}" y="0" width="{{ allocation.relative_span }}" height="1" vector-effect="non-scaling-stroke">
+                      <title>{{ allocation.name }}: {{ allocation.network }}/{{ allocation.prefix }}</title>
+                    </rect>
+                  {% endfor %}
+                </svg>
+              {% endif %}
+            </noscript>
+          </div>
+        </div>
+
+        <div class="hero-subnet-grid" data-dashboard-chips{% if not resume_visualization %} hidden{% endif %}>
+          {% for allocation in resume_visualization %}
+            <button type="button" class="hero-subnet-chip{% if forloop.first %} is-selected{% endif %}" data-select-hero-subnet="{{ allocation.id }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+              <span class="hero-subnet-chip__lead">
+                <span class="hero-subnet-chip__dot hero-subnet-chip__dot--{% cycle '0' '1' '2' '3' %}" aria-hidden="true"></span>
+                <strong>{{ allocation.name }}</strong>
+              </span>
+              <code>{{ allocation.network }}/{{ allocation.prefix }}</code>
+            </button>
+          {% endfor %}
+        </div>
+
+        <div class="hero-subnet-readout" data-dashboard-readout{% if not resume_first_allocation %} hidden{% endif %}>
+          {% if resume_first_allocation %}
+            <div class="hero-subnet-readout__top">
+              <div class="hero-subnet-readout__identity">
+                <span class="hero-subnet-readout__label">Selected subnet · <b data-readout-hosts>{{ resume_first_allocation.required_hosts }} / {{ resume_first_allocation.usable_capacity }} hosts</b></span>
+                <strong data-readout-name>{{ resume_first_allocation.name }}</strong>
+              </div>
+              <div class="hero-subnet-readout__actions">
+                <button type="button" class="copy-btn copy-btn--dark" data-copy-value="{{ resume_first_allocation.network }}/{{ resume_first_allocation.prefix }}" data-readout-copy aria-label="Copy selected subnet CIDR">
+                  <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <code data-readout-cidr>{{ resume_first_allocation.network }}/{{ resume_first_allocation.prefix }}</code>
+                </button>
+                <a class="hero-inspect-pill" data-readout-link href="{% url 'network_projects:detail' resume_project.id %}?subnet={{ resume_first_allocation.id }}"><span>Inspect</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+              </div>
+            </div>
+            <div class="hero-subnet-readout__ips">
+              <div class="hero-ip-cell"><span>First usable</span><code data-readout-first>{{ resume_first_allocation.first_usable }}</code></div>
+              <div class="hero-ip-cell"><span>Last usable</span><code data-readout-last>{{ resume_first_allocation.last_usable }}</code></div>
+              <div class="hero-ip-cell"><span>Broadcast</span><code data-readout-broadcast>{{ resume_first_allocation.broadcast }}</code></div>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="hero-plan__footer">
+          <dl>
+            <div><dt>Allocated</dt><dd data-hero-allocated>{{ resume_summary.allocated_addresses }}</dd></div>
+            <div><dt>Remaining</dt><dd data-hero-remaining>{{ resume_summary.remaining_addresses }}</dd></div>
+            <div><dt>Subnets</dt><dd data-hero-subnets>{{ resume_summary.subnet_count }}</dd></div>
+          </dl>
+          <a class="hero-open-btn" data-hero-open-link href="{% url 'network_projects:detail' resume_project.id %}">
+            <span data-hero-open-label>{% if resume_visualization %}Open plan{% else %}Finish allocation{% endif %}</span>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </a>
+        </div>
       </section>
     {% else %}
-      <section class="hero-workflow" aria-labelledby="hero-workflow-title">
-        <h2 id="hero-workflow-title">From boundary to saved plan</h2>
-        <ol><li><strong>Define</strong><span>Choose the IPv4 network and prefix.</span></li><li><strong>Size</strong><span>Add each subnet’s usable-host need.</span></li><li><strong>Inspect</strong><span>Review every persisted allocation boundary.</span></li></ol>
+      <section class="hero-workflow" aria-labelledby="hero-workflow-title" data-hero-workflow>
+        <div class="hero-workflow__head">
+          <h2 id="hero-workflow-title">From boundary to saved plan</h2>
+          <span>Interactive guide</span>
+        </div>
+        <ol class="hero-workflow__steps">
+          <li class="is-active" data-workflow-step="0">
+            <button type="button" class="hero-workflow__trigger" data-workflow-trigger="0" aria-pressed="true">
+              <span class="hero-workflow__num" aria-hidden="true">1</span>
+              <span><strong>Define</strong><small>Choose the IPv4 network and prefix.</small></span>
+            </button>
+          </li>
+          <li data-workflow-step="1">
+            <button type="button" class="hero-workflow__trigger" data-workflow-trigger="1" aria-pressed="false">
+              <span class="hero-workflow__num" aria-hidden="true">2</span>
+              <span><strong>Size</strong><small>Add each subnet’s usable-host need.</small></span>
+            </button>
+          </li>
+          <li data-workflow-step="2">
+            <button type="button" class="hero-workflow__trigger" data-workflow-trigger="2" aria-pressed="false">
+              <span class="hero-workflow__num" aria-hidden="true">3</span>
+              <span><strong>Inspect</strong><small>Review every persisted allocation boundary.</small></span>
+            </button>
+          </li>
+        </ol>
+        <div class="hero-workflow__stage" data-workflow-stage aria-live="polite">
+          <code data-workflow-code>Base boundary · strict CIDR alignment (/0 – /30)</code>
+          <p data-workflow-desc>VLSMatic verifies your network boundary first so host addresses can never create misaligned subnets.</p>
+        </div>
       </section>
     {% endif %}
   </header>
 
-  <section class="metric-ribbon" aria-label="Planning summary" data-motion-list>
-    <div><strong data-count="{{ project_count }}">{{ project_count }}</strong><span>Network projects</span></div>
-    <div><strong data-count="{{ active_plan_count }}">{{ active_plan_count }}</strong><span>Current plans</span></div>
-    <div><strong data-count="{{ subnet_count }}">{{ subnet_count }}</strong><span>Subnet requirements</span></div>
-    <div><strong data-count="{{ allocated_address_count }}">{{ allocated_address_count }}</strong><span>Allocated addresses</span></div>
+  <section class="metric-ribbon" aria-label="Planning summary">
+    <article class="metric-tile metric-tile--cyan">
+      <div class="metric-tile__head">
+        <div class="metric-tile__icon" aria-hidden="true">
+          <svg class="bi-svg" viewBox="0 0 16 16"><path d="M2 9a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2zm.5 3a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m2 0a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1M2 2a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm.5 3a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m2 0a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1"/></svg>
+        </div>
+        <span class="metric-tile__tag">Workspaces</span>
+      </div>
+      <div class="metric-tile__body">
+        <strong class="metric-tile__value">{{ project_count }}</strong>
+        <span class="metric-tile__label">Network projects</span>
+      </div>
+      <div class="metric-tile__foot">
+        <span>{% if project_count == 1 %}1 saved CIDR boundary{% else %}{{ project_count }} saved CIDR boundaries{% endif %}</span>
+      </div>
+    </article>
+
+    <article class="metric-tile metric-tile--emerald">
+      <div class="metric-tile__head">
+        <div class="metric-tile__icon" aria-hidden="true">
+          <svg class="bi-svg" viewBox="0 0 16 16"><path d="M10.067.87a2.89 2.89 0 0 0-4.134 0l-.622.638-.89-.011a2.89 2.89 0 0 0-2.924 2.924l.01.89-.636.622a2.89 2.89 0 0 0 0 4.134l.637.622-.011.89a2.89 2.89 0 0 0 2.924 2.924l.89-.01.622.636a2.89 2.89 0 0 0 4.134 0l.622-.637.89.011a2.89 2.89 0 0 0 2.924-2.924l-.01-.89.636-.622a2.89 2.89 0 0 0 0-4.134l-.637-.622.011-.89a2.89 2.89 0 0 0-2.924-2.924l-.89.01zm.287 5.984-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7 8.793l2.646-2.647a.5.5 0 0 1 .708.708"/></svg>
+        </div>
+        <span class="metric-tile__tag">Active VLSM</span>
+      </div>
+      <div class="metric-tile__body">
+        <strong class="metric-tile__value">{{ active_plan_count }}</strong>
+        <span class="metric-tile__label">Current plans</span>
+      </div>
+      <div class="metric-tile__foot">
+        <span>{% if project_count %}{{ active_plan_count }} of {{ project_count }} allocated{% else %}Ready for first plan{% endif %}</span>
+      </div>
+    </article>
+
+    <article class="metric-tile metric-tile--blue">
+      <div class="metric-tile__head">
+        <div class="metric-tile__icon" aria-hidden="true">
+          <svg class="bi-svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5zm-6 8A1.5 1.5 0 0 1 1.5 10h1A1.5 1.5 0 0 1 4 11.5v1A1.5 1.5 0 0 1 2.5 14h-1A1.5 1.5 0 0 1 0 12.5zm6 0A1.5 1.5 0 0 1 7.5 10h1a1.5 1.5 0 0 1 1.5 1.5v1A1.5 1.5 0 0 1 8.5 14h-1A1.5 1.5 0 0 1 6 12.5zm6 0a1.5 1.5 0 0 1 1.5-1.5h1a1.5 1.5 0 0 1 1.5 1.5v1a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5z"/></svg>
+        </div>
+        <span class="metric-tile__tag">Topology</span>
+      </div>
+      <div class="metric-tile__body">
+        <strong class="metric-tile__value">{{ subnet_count }}</strong>
+        <span class="metric-tile__label">Subnet requirements</span>
+      </div>
+      <div class="metric-tile__foot">
+        <span>Largest-first host sizing</span>
+      </div>
+    </article>
+
+    <article class="metric-tile metric-tile--indigo">
+      <div class="metric-tile__head">
+        <div class="metric-tile__icon" aria-hidden="true">
+          <svg class="bi-svg" viewBox="0 0 16 16"><path d="M2 2a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h5.5v3A1.5 1.5 0 0 0 6 11.5H.5a.5.5 0 0 0 0 1H6A1.5 1.5 0 0 0 7.5 14h1a1.5 1.5 0 0 0 1.5-1.5h5.5a.5.5 0 0 0 0-1H10A1.5 1.5 0 0 0 8.5 10V7H14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm.5 3a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1m2 0a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1"/></svg>
+        </div>
+        <span class="metric-tile__tag">IPv4 Space</span>
+      </div>
+      <div class="metric-tile__body">
+        <strong class="metric-tile__value">{{ allocated_address_count }}</strong>
+        <span class="metric-tile__label">Allocated addresses</span>
+      </div>
+      <div class="metric-tile__foot">
+        <span>Reserved across saved plans</span>
+      </div>
+    </article>
   </section>
 
-  <section class="dashboard-work" aria-labelledby="recent-heading" data-motion-region>
-    <div class="section-heading section-heading--studio"><div><h2 id="recent-heading">Continue planning</h2><p>Your most recently updated network boundaries.</p></div><a href="{% url 'network_projects:list' %}">View all projects</a></div>
+  <section class="dashboard-work" aria-labelledby="recent-heading">
+    <div class="section-heading section-heading--studio">
+      <div>
+        <h2 id="recent-heading">Continue planning</h2>
+        <p>Click any CIDR to copy, preview a boundary on the command deck above, or open its full studio.</p>
+      </div>
+      <a class="pill-link" href="{% url 'network_projects:list' %}"><span>View all projects</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+    </div>
     {% if recent_projects %}
-      <div class="project-stack" data-motion-list>
+      <div class="project-stack">
         {% for project in recent_projects %}
-          <a class="project-snapshot" href="{% url 'network_projects:detail' project.id %}">
-            <span class="project-snapshot__identity"><strong>{{ project.name }}</strong><code>{{ project.cidr }}</code></span>
-            <span class="project-snapshot__measure"><i style="--value: {{ project.address_consumption|floatformat:2 }}%"></i><small>{{ project.address_consumption|floatformat:1 }}% address space used</small></span>
-            <span class="project-snapshot__meta"><b>{{ project.requirement_count }}</b> subnets<time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|timesince }} ago</time></span>
-            <span class="project-snapshot__arrow" aria-hidden="true"></span>
-          </a>
+          <article class="project-card-row{% if resume_project and project.id == resume_project.id %} is-deck-active{% endif %}" data-project-row="{{ project.id }}">
+            <div class="project-card-row__identity">
+              <a class="project-card-row__title" href="{% url 'network_projects:detail' project.id %}">{{ project.name }}</a>
+              <div class="project-card-row__badges">
+                <button type="button" class="cidr-chip-copy" data-copy-value="{{ project.cidr }}" aria-label="Copy {{ project.name }} CIDR">
+                  <code>{{ project.cidr }}</code>
+                  <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                </button>
+                <span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span>
+              </div>
+            </div>
+            <div class="project-snapshot__measure">
+              <progress class="meter-bar" value="{{ project.address_consumption|floatformat:2 }}" max="100" aria-hidden="true"></progress>
+              <small>{{ project.address_consumption|floatformat:1 }}% address space used</small>
+            </div>
+            <div class="project-snapshot__meta">
+              <span class="subnet-count"><b>{{ project.requirement_count }}</b> subnets</span>
+              <time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|timesince }} ago</time>
+            </div>
+            <div class="project-card-row__actions">
+              {% if recent_projects|length > 1 %}
+                <button type="button" class="action-chip{% if resume_project and project.id == resume_project.id %} is-active{% endif %}" data-preview-project="{{ project.id }}">
+                  <span>{% if resume_project and project.id == resume_project.id %}On deck{% else %}Preview{% endif %}</span>
+                </button>
+              {% endif %}
+              <a class="project-snapshot__chevron" href="{% url 'network_projects:detail' project.id %}" aria-label="Open {{ project.name }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+            </div>
+          </article>
         {% endfor %}
       </div>
     {% else %}
-      <div class="studio-empty"><img src="{% static 'img/vlsmatic-icon.png' %}" alt=""><div><h2>Your first address space is waiting</h2><p>Start with an IPv4 network and prefix. VLSMatic will turn host requirements into a saved, visual allocation.</p><a class="button button--brand" href="{% url 'network_projects:create' %}">Create your first project</a></div></div>
+      <div class="studio-empty">
+        <div class="studio-empty__brand" aria-hidden="true"><img src="{% static 'img/vlsmatic-logo.png' %}" alt="" width="2799" height="659"></div>
+        <div>
+          <h2>Your first address space is waiting</h2>
+          <p>Start with an IPv4 network and prefix. VLSMatic will turn host requirements into a saved, visual allocation.</p>
+          <a class="button button--brand" href="{% url 'network_projects:create' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Create your first project</span></a>
+        </div>
+      </div>
     {% endif %}
   </section>
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
   {{ resume_visualization|json_script:"dashboard-plan-preview-data" }}
+  {{ dashboard_plans_data|json_script:"dashboard-plans-data" }}
 </main>
 {% endblock %}
