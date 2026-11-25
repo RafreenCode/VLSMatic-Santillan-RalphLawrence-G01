@@ -77,13 +77,13 @@ class ProjectViewTests(TestCase):
         list_resp = self.client.get(reverse("network_projects:list"))
         self.assertContains(list_resp, "Admin Personal Plan")
         self.assertNotContains(list_resp, "My plan")
-        self.assertEqual(self.client.get(reverse("network_projects:update", args=[admin_project.slug])).status_code, 302)
+        self.assertEqual(self.client.get(reverse("network_projects:update", args=[admin_project.slug])).status_code, 405)
         detail_resp = self.client.get(reverse("network_projects:detail", args=[self.project.slug]), follow=True)
         self.assertRedirects(
             detail_resp,
             reverse("dashboard:admin_user_project_detail", args=[self.user.username, self.project.slug]),
         )
-        self.assertEqual(self.client.get(reverse("network_projects:update", args=[self.project.slug])).status_code, 403)
+        self.assertEqual(self.client.post(reverse("network_projects:update", args=[self.project.slug])).status_code, 403)
 
     def test_calculate_requires_post_and_persists_result(self):
         requirement = SubnetRequirement.objects.create(project=self.project, name="Lab", required_hosts=50)

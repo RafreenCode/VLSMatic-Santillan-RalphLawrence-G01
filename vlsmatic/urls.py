@@ -4,8 +4,15 @@ from django.templatetags.static import static as static_url
 from django.urls import include, path
 from django.views.generic import RedirectView
 
+
+class FaviconRedirectView(RedirectView):
+    def get_redirect_url(self, *args, **kwargs):
+        # Resolve after startup so checks/migrations can run before collectstatic.
+        return static_url("img/favicon.ico")
+
+
 urlpatterns = [
-    path("favicon.ico", RedirectView.as_view(url=static_url("img/favicon.ico"), permanent=False)),
+    path("favicon.ico", FaviconRedirectView.as_view(permanent=False)),
     path("admin/login/", RedirectView.as_view(pattern_name="dashboard:admin", permanent=False)),
     path("admin/", RedirectView.as_view(pattern_name="dashboard:admin", permanent=False)),
     path("projects/", include("network_projects.urls")),

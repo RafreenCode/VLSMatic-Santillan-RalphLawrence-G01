@@ -37,7 +37,7 @@ LOCAL_HTTP = env_bool("LOCAL_HTTP", IS_LOCAL)
 local_http_file_value = dotenv_values(BASE_DIR / ".env").get("LOCAL_HTTP")
 if local_http_file_value is not None:
     LOCAL_HTTP = str(local_http_file_value).strip().lower() in {"1", "true", "yes", "on"}
-DEBUG = True if LOCAL_HTTP else env_bool("DEBUG")
+DEBUG = env_bool("DEBUG")
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -153,12 +153,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
-SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0"))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_HSTS_PRELOAD = not DEBUG
+SESSION_COOKIE_SECURE = not LOCAL_HTTP
+CSRF_COOKIE_SECURE = not LOCAL_HTTP
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not LOCAL_HTTP)
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0" if LOCAL_HTTP else "31536000"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not LOCAL_HTTP
+SECURE_HSTS_PRELOAD = not LOCAL_HTTP
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
