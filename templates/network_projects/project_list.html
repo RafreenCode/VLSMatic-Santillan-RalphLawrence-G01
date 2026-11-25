@@ -22,7 +22,7 @@
   {% if projects %}
     <div class="project-stack project-stack--index">
       {% for project in projects %}
-        <a class="project-snapshot" href="{% url 'network_projects:detail' project.id %}">
+        <a class="project-snapshot" href="{% url 'network_projects:detail' project.slug %}">
           <span class="project-snapshot__identity">
             <strong>{{ project.name }}</strong>
             <small>{{ project.description|default:"No project notes"|truncatechars:68 }}</small>

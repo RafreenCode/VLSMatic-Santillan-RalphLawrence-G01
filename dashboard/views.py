@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from accounts.models import GroupMembership, User, WorkspaceGroup
 from network_projects.models import NetworkProject, SubnetRequirement
 from network_projects.services import allocation_visualization, project_summary
+from network_projects.views import render_project_studio
 
 from .decorators import role_required
 from .forms import (
@@ -113,9 +114,10 @@ def user_dashboard(request):
         dashboard_plans_data.append(
             {
                 "id": project.pk,
+                "slug": project.slug,
                 "name": project.name,
                 "cidr": project.cidr,
-                "detail_url": reverse("network_projects:detail", args=[project.pk]),
+                "detail_url": reverse("network_projects:detail", args=[project.slug]),
                 "summary": summary,
                 "allocations": allocations,
             }
@@ -189,8 +191,12 @@ def user_join_group(request):
 
 @role_required(User.Role.USER)
 @require_POST
-def user_leave_group(request, group_id):
-    membership = get_object_or_404(GroupMembership.objects.select_related("group"), group_id=group_id, user=request.user)
+def user_leave_group(request, group_slug):
+    membership = get_object_or_404(
+        GroupMembership.objects.select_related("group"),
+        group__slug=group_slug,
+        user=request.user,
+    )
     group_name = membership.group.name
     membership.delete()
     messages.success(request, f'Left group "{group_name}".')
@@ -259,7 +265,7 @@ def admin_group_create(request):
         group.join_code = WorkspaceGroup.generate_unique_join_code()
         group.save()
         messages.success(request, f'Group "{group.name}" created with join code {group.join_code}.')
-        return redirect("dashboard:admin_group_detail", group_id=group.pk)
+        return redirect("dashboard:admin_group_detail", group_slug=group.slug)
     return render(
         request,
         "dashboard/admin_group_form.html",
@@ -268,8 +274,8 @@ def admin_group_create(request):
 
 
 @role_required(User.Role.ADMIN)
-def admin_group_detail(request, group_id):
-    group = get_object_or_404(WorkspaceGroup.objects.select_related("created_by"), pk=group_id)
+def admin_group_detail(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup.objects.select_related("created_by"), slug=group_slug)
     member_query = request.GET.get("q", "").strip()
 
     memberships_qs = (
@@ -319,13 +325,13 @@ def admin_group_detail(request, group_id):
 
 
 @role_required(User.Role.ADMIN)
-def admin_group_update(request, group_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
+def admin_group_update(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
     form = WorkspaceGroupForm(request.POST or None, instance=group)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, f'Updated group "{group.name}".')
-        return redirect("dashboard:admin_group_detail", group_id=group.pk)
+        return redirect("dashboard:admin_group_detail", group_slug=group.slug)
     return render(
         request,
         "dashboard/admin_group_form.html",
@@ -335,8 +341,8 @@ def admin_group_update(request, group_id):
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_group_delete(request, group_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
+def admin_group_delete(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
     name = group.name
     group.delete()
     messages.success(request, f'Deleted group "{name}".')
@@ -345,28 +351,28 @@ def admin_group_delete(request, group_id):
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_group_regenerate_code(request, group_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
+def admin_group_regenerate_code(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
     new_code = group.regenerate_join_code()
     messages.success(request, f'Generated new join code {new_code} for "{group.name}".')
-    return redirect("dashboard:admin_group_detail", group_id=group.pk)
+    return redirect("dashboard:admin_group_detail", group_slug=group.slug)
 
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_group_toggle_joinable(request, group_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
+def admin_group_toggle_joinable(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
     group.is_joinable = not group.is_joinable
     group.save(update_fields=["is_joinable", "updated_at"])
     state = "reopened" if group.is_joinable else "paused"
     messages.success(request, f'Joining for "{group.name}" has been {state}.')
-    return redirect("dashboard:admin_group_detail", group_id=group.pk)
+    return redirect("dashboard:admin_group_detail", group_slug=group.slug)
 
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_group_add_member(request, group_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
+def admin_group_add_member(request, group_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
     form = AdminGroupAddMemberForm(request.POST, group=group)
     if form.is_valid():
         member = form.cleaned_data["user"]
@@ -374,55 +380,26 @@ def admin_group_add_member(request, group_id):
         messages.success(request, f'Added @{member.username} to "{group.name}".')
     else:
         messages.error(request, "Select a valid user to add to this group.")
-    return redirect("dashboard:admin_group_detail", group_id=group.pk)
+    return redirect("dashboard:admin_group_detail", group_slug=group.slug)
 
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_group_remove_member(request, group_id, user_id):
-    group = get_object_or_404(WorkspaceGroup, pk=group_id)
-    membership = get_object_or_404(GroupMembership.objects.select_related("user"), group=group, user_id=user_id)
-    username = membership.user.username
+def admin_group_remove_member(request, group_slug, username):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    membership = get_object_or_404(
+        GroupMembership.objects.select_related("user"),
+        group=group,
+        user__username=username,
+    )
     membership.delete()
     messages.success(request, f'Removed @{username} from "{group.name}".')
-    return redirect("dashboard:admin_group_detail", group_id=group.pk)
+    return redirect("dashboard:admin_group_detail", group_slug=group.slug)
 
 
-@role_required(User.Role.ADMIN)
-def admin_user_list(request):
-    users, user_filters, user_filters_active = _filter_users_queryset(request)
-    return render(
-        request,
-        "dashboard/admin_user_list.html",
-        {
-            **_admin_tab_context("users"),
-            "users": users,
-            "user_filters": user_filters,
-            "user_filters_active": user_filters_active,
-        },
-    )
-
-
-@role_required(User.Role.ADMIN)
-def admin_user_create(request):
-    form = AdminUserCreateForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        new_user = form.save()
-        messages.success(request, f"Account @{new_user.username} was created.")
-        return redirect("dashboard:admin_user_detail", user_id=new_user.pk)
-    return render(request, "dashboard/admin_user_form.html", {**_admin_tab_context("users"), "form": form})
-
-
-@role_required(User.Role.ADMIN)
-def admin_user_detail(request, user_id):
-    target_user = get_object_or_404(User.objects.select_related("role_record"), pk=user_id)
+def _render_admin_user_detail(request, target_user, source_group=None):
     is_self = target_user.pk == request.user.pk
     last_active_admin = _is_last_active_admin(target_user)
-
-    source_group = None
-    group_param = request.GET.get("group", "").strip()
-    if group_param.isdigit():
-        source_group = WorkspaceGroup.objects.filter(pk=int(group_param), memberships__user=target_user).first()
 
     form = AdminUserUpdateForm(request.POST or None, instance=target_user)
     if request.method == "POST" and form.is_valid():
@@ -436,10 +413,13 @@ def admin_user_detail(request, user_id):
             updated.is_staff = new_role == User.Role.ADMIN
             updated.save()
             messages.success(request, f"Updated account details for @{updated.username}.")
-            redirect_url = reverse("dashboard:admin_user_detail", args=[updated.pk])
             if source_group:
-                redirect_url = f"{redirect_url}?group={source_group.pk}"
-            return redirect(redirect_url)
+                return redirect(
+                    "dashboard:admin_group_member_detail",
+                    group_slug=source_group.slug,
+                    username=updated.username,
+                )
+            return redirect("dashboard:admin_user_detail", username=updated.username)
 
     user_projects_qs = (
         target_user.network_projects.annotate(
@@ -472,33 +452,97 @@ def admin_user_detail(request, user_id):
 
 
 @role_required(User.Role.ADMIN)
+def admin_user_list(request):
+    users, user_filters, user_filters_active = _filter_users_queryset(request)
+    return render(
+        request,
+        "dashboard/admin_user_list.html",
+        {
+            **_admin_tab_context("users"),
+            "users": users,
+            "user_filters": user_filters,
+            "user_filters_active": user_filters_active,
+        },
+    )
+
+
+@role_required(User.Role.ADMIN)
+def admin_user_create(request):
+    form = AdminUserCreateForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        new_user = form.save()
+        messages.success(request, f"Account @{new_user.username} was created.")
+        return redirect("dashboard:admin_user_detail", username=new_user.username)
+    return render(request, "dashboard/admin_user_form.html", {**_admin_tab_context("users"), "form": form})
+
+
+@role_required(User.Role.ADMIN)
+def admin_user_detail(request, username):
+    target_user = get_object_or_404(User.objects.select_related("role_record"), username=username)
+    return _render_admin_user_detail(request, target_user, source_group=None)
+
+
+@role_required(User.Role.ADMIN)
+def admin_group_member_detail(request, group_slug, username):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    membership = get_object_or_404(
+        GroupMembership.objects.select_related("user", "user__role_record"),
+        group=group,
+        user__username=username,
+    )
+    return _render_admin_user_detail(request, membership.user, source_group=group)
+
+
+@role_required(User.Role.ADMIN)
+def admin_user_project_detail(request, username, project_slug):
+    project = get_object_or_404(
+        NetworkProject.objects.select_related("owner"),
+        owner__username=username,
+        slug=project_slug,
+    )
+    return render_project_studio(request, project, read_only=project.owner_id != request.user.pk, source_group=None)
+
+
+@role_required(User.Role.ADMIN)
+def admin_group_member_project_detail(request, group_slug, username, project_slug):
+    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    get_object_or_404(GroupMembership, group=group, user__username=username)
+    project = get_object_or_404(
+        NetworkProject.objects.select_related("owner"),
+        owner__username=username,
+        slug=project_slug,
+    )
+    return render_project_studio(request, project, read_only=project.owner_id != request.user.pk, source_group=group)
+
+
+@role_required(User.Role.ADMIN)
 @require_POST
-def admin_user_toggle_active(request, user_id):
-    target_user = get_object_or_404(User, pk=user_id)
+def admin_user_toggle_active(request, username):
+    target_user = get_object_or_404(User, username=username)
     if target_user.pk == request.user.pk:
         messages.error(request, "You cannot deactivate your own administrator account.")
-        return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+        return redirect("dashboard:admin_user_detail", username=target_user.username)
     if target_user.is_active and _is_last_active_admin(target_user):
         messages.error(request, "Cannot deactivate the last active administrator.")
-        return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+        return redirect("dashboard:admin_user_detail", username=target_user.username)
 
     target_user.is_active = not target_user.is_active
     target_user.save(update_fields=["is_active"])
     state_label = "activated" if target_user.is_active else "deactivated"
     messages.success(request, f"Account @{target_user.username} has been {state_label}.")
-    return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+    return redirect("dashboard:admin_user_detail", username=target_user.username)
 
 
 @role_required(User.Role.ADMIN)
 @require_POST
-def admin_user_change_role(request, user_id):
-    target_user = get_object_or_404(User, pk=user_id)
+def admin_user_change_role(request, username):
+    target_user = get_object_or_404(User, username=username)
     if target_user.pk == request.user.pk:
         messages.error(request, "You cannot change your own role.")
-        return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+        return redirect("dashboard:admin_user_detail", username=target_user.username)
     if target_user.role == User.Role.ADMIN and _is_last_active_admin(target_user):
         messages.error(request, "Cannot demote the last active administrator.")
-        return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+        return redirect("dashboard:admin_user_detail", username=target_user.username)
 
     next_role = User.Role.USER if target_user.role == User.Role.ADMIN else User.Role.ADMIN
     target_user.role = next_role
@@ -506,4 +550,4 @@ def admin_user_change_role(request, user_id):
     target_user.save(update_fields=["role_record", "is_staff"])
     role_label = "Administrator" if next_role == User.Role.ADMIN else "Regular User"
     messages.success(request, f"Changed @{target_user.username} role to {role_label}.")
-    return redirect("dashboard:admin_user_detail", user_id=target_user.pk)
+    return redirect("dashboard:admin_user_detail", username=target_user.username)

@@ -10,14 +10,14 @@ class NetworkProjectForm(forms.ModelForm):
     base_network = forms.CharField(
         label="Base IPv4 network",
         help_text="Enter the network address, for example 192.168.10.0.",
-        widget=forms.TextInput(attrs={"placeholder": "192.168.10.0", "inputmode": "decimal"}),
+        widget=forms.TextInput(attrs={"placeholder": "192.168.10.0", "inputmode": "decimal", "maxlength": "15"}),
     )
     prefix_length = forms.IntegerField(
         label="Prefix length",
         min_value=0,
         max_value=30,
         help_text="Use a prefix from /0 through /30.",
-        widget=forms.NumberInput(attrs={"placeholder": "24"}),
+        widget=forms.NumberInput(attrs={"min": 0, "max": 30, "placeholder": "24"}),
     )
 
     class Meta:
@@ -53,10 +53,16 @@ class NetworkProjectForm(forms.ModelForm):
             try:
                 network = IPv4Network(f"{address}/{prefix}", strict=True)
             except (AddressValueError, NetmaskValueError, ValueError):
-                self.add_error(
-                    "base_network",
-                    "Enter the network address for this prefix. Host addresses are not accepted.",
-                )
+                try:
+                    suggested = IPv4Network(f"{address}/{prefix}", strict=False).network_address
+                except (AddressValueError, NetmaskValueError, ValueError):
+                    message = "Enter a valid IPv4 network address (four octets 0–255, e.g., 192.168.10.0)."
+                else:
+                    message = (
+                        f"{address} is a host address inside /{prefix}, not the network address. "
+                        f"Use {suggested}/{prefix} instead (all host bits must be 0)."
+                    )
+                self.add_error("base_network", message)
             else:
                 cleaned["base_network"] = str(network.network_address)
         return cleaned

@@ -7,7 +7,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from accounts.models import User, WorkspaceGroup
+from accounts.models import User
 
 from .forms import NetworkProjectForm, ProjectFilterForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
@@ -24,8 +24,8 @@ def _decorate_projects(projects):
     return decorated
 
 
-def _owned_project(request, project_id):
-    project = get_object_or_404(NetworkProject, pk=project_id)
+def _owned_project(request, project_slug):
+    project = get_object_or_404(NetworkProject, slug=project_slug)
     if project.owner_id != request.user.pk:
         if request.user.role == User.Role.ADMIN:
             raise PermissionDenied
@@ -33,16 +33,48 @@ def _owned_project(request, project_id):
     return project
 
 
-def _owned_requirement(request, requirement_id):
+def _owned_requirement(request, project_slug, requirement_id):
     requirement = get_object_or_404(
         SubnetRequirement.objects.select_related("project"),
         pk=requirement_id,
+        project__slug=project_slug,
     )
     if requirement.project.owner_id != request.user.pk:
         if request.user.role == User.Role.ADMIN:
             raise PermissionDenied
         raise Http404
     return requirement
+
+
+def render_project_studio(request, project, *, read_only: bool, source_group=None):
+    requirements = list(project.requirements.select_related("allocation").all())
+    studio_warning = None if read_only else request.session.pop("studio_warning", None)
+    return render(
+        request,
+        "network_projects/project_detail.html",
+        {
+            "project": project,
+            "requirements": requirements,
+            "summary": project_summary(project, requirements),
+            "visualization_data": allocation_visualization(project, requirements),
+            "read_only": read_only,
+            "source_group": source_group,
+            "studio_warning": studio_warning,
+        },
+    )
+
+
+def _flash_studio_warning(request, title, form, extra=None):
+    error_messages = []
+    for field_errors in form.errors.values():
+        error_messages.extend(str(err) for err in field_errors)
+    payload = {
+        "title": title,
+        "messages": error_messages or ["Please check your input and try again."],
+    }
+    if extra:
+        payload.update(extra)
+    request.session["studio_warning"] = payload
 
 
 @login_required
@@ -75,60 +107,29 @@ def project_create(request):
         project.owner = request.user
         project.save()
         messages.success(request, "Project created successfully.")
-        return redirect("network_projects:detail", project_id=project.pk)
+        return redirect("network_projects:detail", project_slug=project.slug)
     return render(request, "network_projects/project_form.html", {"form": form, "heading": "Create a network project"})
 
 
 @login_required
-def project_detail(request, project_id):
-    source_group = None
-    if request.user.role == User.Role.ADMIN:
-        project = get_object_or_404(NetworkProject.objects.select_related("owner"), pk=project_id)
-        read_only = project.owner_id != request.user.pk
-        if read_only:
-            group_id = request.GET.get("group", "").strip()
-            if group_id.isdigit():
-                source_group = WorkspaceGroup.objects.filter(
-                    pk=int(group_id), memberships__user=project.owner
-                ).first()
-    else:
-        project = _owned_project(request, project_id)
-        read_only = False
-    requirements = list(project.requirements.select_related("allocation").all())
-    studio_warning = request.session.pop("studio_warning", None)
-    return render(
-        request,
-        "network_projects/project_detail.html",
-        {
-            "project": project,
-            "requirements": requirements,
-            "summary": project_summary(project, requirements),
-            "visualization_data": allocation_visualization(project, requirements),
-            "read_only": read_only,
-            "source_group": source_group,
-            "studio_warning": studio_warning,
-        },
-    )
-
-
-def _flash_studio_warning(request, title, form, extra=None):
-    error_messages = []
-    for field_errors in form.errors.values():
-        error_messages.extend(str(err) for err in field_errors)
-    payload = {
-        "title": title,
-        "messages": error_messages or ["Please check your input and try again."],
-    }
-    if extra:
-        payload.update(extra)
-    request.session["studio_warning"] = payload
+def project_detail(request, project_slug):
+    project = get_object_or_404(NetworkProject.objects.select_related("owner"), slug=project_slug)
+    if project.owner_id != request.user.pk:
+        if request.user.role == User.Role.ADMIN:
+            return redirect(
+                "dashboard:admin_user_project_detail",
+                username=project.owner.username,
+                project_slug=project.slug,
+            )
+        raise Http404
+    return render_project_studio(request, project, read_only=False)
 
 
 @login_required
-def project_update(request, project_id):
-    project = _owned_project(request, project_id)
+def project_update(request, project_slug):
+    project = _owned_project(request, project_slug)
     if request.method != "POST":
-        return redirect("network_projects:detail", project_id=project.pk)
+        return redirect("network_projects:detail", project_slug=project.slug)
     original_network = (project.base_network, project.prefix_length)
     form = NetworkProjectForm(request.POST, instance=project, owner=request.user)
     if form.is_valid():
@@ -145,26 +146,26 @@ def project_update(request, project_id):
             form.add_error(None, error.messages[0])
         else:
             messages.success(request, "Project updated and its allocation recalculated.")
-            return redirect("network_projects:detail", project_id=project.pk)
+            return redirect("network_projects:detail", project_slug=project.slug)
     _flash_studio_warning(request, "Could not update project boundary", form)
-    return redirect("network_projects:detail", project_id=project.pk)
+    return redirect("network_projects:detail", project_slug=project.slug)
 
 
 @login_required
-def project_delete(request, project_id):
-    project = _owned_project(request, project_id)
+def project_delete(request, project_slug):
+    project = _owned_project(request, project_slug)
     if request.method == "POST":
         project.delete()
         messages.success(request, "Project deleted.")
         return redirect("network_projects:list")
-    return redirect("network_projects:detail", project_id=project.pk)
+    return redirect("network_projects:detail", project_slug=project.slug)
 
 
 @login_required
-def requirement_create(request, project_id):
-    project = _owned_project(request, project_id)
+def requirement_create(request, project_slug):
+    project = _owned_project(request, project_slug)
     if request.method != "POST":
-        return redirect("network_projects:detail", project_id=project.pk)
+        return redirect("network_projects:detail", project_slug=project.slug)
     form = SubnetRequirementForm(request.POST, project=project)
     if form.is_valid():
         try:
@@ -178,7 +179,7 @@ def requirement_create(request, project_id):
             form.add_error(None, error.messages[0])
         else:
             messages.success(request, "Subnet requirement added and the plan recalculated.")
-            return redirect("network_projects:detail", project_id=project.pk)
+            return redirect("network_projects:detail", project_slug=project.slug)
     _flash_studio_warning(
         request,
         "Could not add subnet",
@@ -188,14 +189,14 @@ def requirement_create(request, project_id):
             "required_hosts": request.POST.get("required_hosts", ""),
         },
     )
-    return redirect("network_projects:detail", project_id=project.pk)
+    return redirect("network_projects:detail", project_slug=project.slug)
 
 
 @login_required
-def requirement_update(request, requirement_id):
-    requirement = _owned_requirement(request, requirement_id)
+def requirement_update(request, project_slug, requirement_id):
+    requirement = _owned_requirement(request, project_slug, requirement_id)
     if request.method != "POST":
-        return redirect("network_projects:detail", project_id=requirement.project_id)
+        return redirect("network_projects:detail", project_slug=requirement.project.slug)
     form = SubnetRequirementForm(request.POST, instance=requirement, project=requirement.project)
     if form.is_valid():
         try:
@@ -206,31 +207,31 @@ def requirement_update(request, requirement_id):
             form.add_error(None, error.messages[0])
         else:
             messages.success(request, "Subnet requirement updated and the plan recalculated.")
-            return redirect("network_projects:detail", project_id=requirement.project_id)
+            return redirect("network_projects:detail", project_slug=requirement.project.slug)
     _flash_studio_warning(request, f"Could not update {requirement.name}", form)
-    return redirect("network_projects:detail", project_id=requirement.project_id)
+    return redirect("network_projects:detail", project_slug=requirement.project.slug)
 
 
 @login_required
-def requirement_delete(request, requirement_id):
-    requirement = _owned_requirement(request, requirement_id)
+def requirement_delete(request, project_slug, requirement_id):
+    requirement = _owned_requirement(request, project_slug, requirement_id)
     project = requirement.project
     if request.method == "POST":
         with transaction.atomic():
             requirement.delete()
             allocate_project(project, allow_empty=True)
         messages.success(request, "Subnet requirement deleted and the plan recalculated.")
-    return redirect("network_projects:detail", project_id=project.pk)
+    return redirect("network_projects:detail", project_slug=project.slug)
 
 
 @login_required
 @require_POST
-def project_calculate(request, project_id):
-    project = _owned_project(request, project_id)
+def project_calculate(request, project_slug):
+    project = _owned_project(request, project_slug)
     try:
         allocate_project(project)
     except AllocationError as error:
         messages.error(request, error.messages[0])
     else:
         messages.success(request, "Allocation generated successfully.")
-    return redirect("network_projects:detail", project_id=project.pk)
+    return redirect("network_projects:detail", project_slug=project.slug)

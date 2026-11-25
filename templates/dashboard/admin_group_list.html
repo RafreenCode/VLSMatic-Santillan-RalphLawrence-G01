@@ -36,7 +36,7 @@
         <article class="group-card">
           <div class="group-card__head">
             <div>
-              <a class="group-card__title" href="{% url 'dashboard:admin_group_detail' group.id %}">{{ group.name }}</a>
+              <a class="group-card__title" href="{% url 'dashboard:admin_group_detail' group.slug %}">{{ group.name }}</a>
               <p class="group-card__desc">{{ group.description|default:"Share the join code below so users can connect their workspace to this group." }}</p>
             </div>
             <span class="status-pill{% if group.is_joinable %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if group.is_joinable %}Open{% else %}Paused{% endif %}</span>
@@ -57,7 +57,7 @@
               <span><b>{{ group.member_count }}</b> {% if group.member_count == 1 %}member{% else %}members{% endif %}</span>
               <span><b>{{ group.project_count }}</b> {% if group.project_count == 1 %}project{% else %}projects{% endif %}</span>
             </div>
-            <a class="action-chip" href="{% url 'dashboard:admin_group_detail' group.id %}">
+            <a class="action-chip" href="{% url 'dashboard:admin_group_detail' group.slug %}">
               <span>Open group</span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
             </a>

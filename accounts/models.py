@@ -6,9 +6,17 @@ from django.contrib.auth.models import AbstractUser
 from django.core.files.storage import default_storage
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils.text import slugify
 
 
 JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+SLUG_TOKEN_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+
+def generate_public_slug(name: str, fallback: str = "item") -> str:
+    base = slugify(name or "")[:96].strip("-") or fallback
+    token = "".join(secrets.choice(SLUG_TOKEN_ALPHABET) for _ in range(6))
+    return f"{base}-{token}"
 
 
 def normalize_join_code(raw_code: str) -> str:
@@ -86,6 +94,7 @@ class User(AbstractUser):
 
 class WorkspaceGroup(models.Model):
     name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=150, unique=True, db_index=True, editable=False)
     description = models.TextField(blank=True, max_length=500)
     join_code = models.CharField(max_length=16, unique=True, db_index=True, default=generate_join_code)
     is_joinable = models.BooleanField(default=True)
@@ -113,11 +122,21 @@ class WorkspaceGroup(models.Model):
         return f"{self.name} ({self.join_code})"
 
     def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.generate_unique_slug(self.name)
         if not self.join_code:
             self.join_code = self.generate_unique_join_code()
         else:
             self.join_code = normalize_join_code(self.join_code)
         super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_unique_slug(cls, name: str) -> str:
+        for _ in range(25):
+            candidate = generate_public_slug(name, fallback="group")
+            if not cls.objects.filter(slug=candidate).exists():
+                return candidate
+        raise RuntimeError("Could not generate a unique group slug.")
 
     @classmethod
     def generate_unique_join_code(cls) -> str:

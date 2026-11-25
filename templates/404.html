@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Page not found · VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% if user.is_authenticated %}{% include "accounts/partials/app_header.html" %}{% endif %}
+<main id="main-content" class="studio-shell">
+  <section class="studio-empty">
+    <div>
+      <h1>Page not found</h1>
+      <p>The workspace, group, or project address you requested does not exist or is no longer available.</p>
+      <a class="button button--brand" href="{% if user.is_authenticated %}{% url 'dashboard:home' %}{% else %}{% url 'accounts:login' %}{% endif %}">
+        <span>{% if user.is_authenticated %}Return to dashboard{% else %}Sign in{% endif %}</span>
+      </a>
+    </div>
+  </section>
+</main>
+{% endblock %}

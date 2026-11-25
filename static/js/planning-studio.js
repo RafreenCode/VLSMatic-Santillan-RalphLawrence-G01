@@ -108,14 +108,155 @@
     const prefix = editor.querySelector('#id_prefix_length');
     const cidr = editor.querySelector('[data-boundary-cidr]');
     const total = editor.querySelector('[data-boundary-total]');
+    const usable = editor.querySelector('[data-boundary-usable]');
+    const maskNode = editor.querySelector('[data-boundary-mask]');
+    const rangeNode = editor.querySelector('[data-boundary-range]');
+    const statusNode = editor.querySelector('[data-boundary-status]');
+    const fixBox = editor.querySelector('[data-boundary-fix-box]');
+    const fixTitle = editor.querySelector('[data-boundary-fix-title]');
+    const fixText = editor.querySelector('[data-boundary-fix-text]');
+    const fixAction = editor.querySelector('[data-boundary-fix-action]');
+    const fixBtn = editor.querySelector('[data-boundary-apply-fix]');
     const track = editor.querySelector('[data-boundary-track]');
-    const update = () => {
-      const prefixValue = Number(prefix?.value);
-      const validPrefix = Number.isInteger(prefixValue) && prefixValue >= 0 && prefixValue <= 30;
-      cidr.textContent = `${address?.value || '0.0.0.0'}/${validPrefix ? prefixValue : '—'}`;
-      total.textContent = validPrefix ? numberFormat.format(2 ** (32 - prefixValue)) : '—';
-      track.style.setProperty('--boundary-fill', `${validPrefix ? Math.max(4, (32 - prefixValue) / 32 * 100) : 0}%`);
+
+    const parseIpv4 = value => {
+      const parts = String(value || '').trim().split('.');
+      if (parts.length !== 4) return null;
+      let acc = 0;
+      for (const part of parts) {
+        if (!/^\d{1,3}$/.test(part)) return null;
+        const n = Number(part);
+        if (n < 0 || n > 255) return null;
+        acc = ((acc << 8) | n) >>> 0;
+      }
+      return acc;
     };
+
+    const formatIpv4 = intVal => [
+      (intVal >>> 24) & 255,
+      (intVal >>> 16) & 255,
+      (intVal >>> 8) & 255,
+      intVal & 255,
+    ].join('.');
+
+    let suggestedNetwork = '';
+
+    const setStatus = (state, text) => {
+      if (!statusNode) return;
+      statusNode.textContent = text;
+      statusNode.classList.remove('is-valid', 'is-warn');
+      if (state) statusNode.classList.add(state);
+    };
+
+    const sanitizeIpv4Input = () => {
+      if (!address) return;
+      let cleaned = address.value.replace(/[^\d.]/g, '');
+      const parts = cleaned.split('.').slice(0, 4).map(part => part.slice(0, 3));
+      cleaned = parts.join('.').slice(0, 15);
+      if (cleaned !== address.value) {
+        address.value = cleaned;
+      }
+    };
+
+    const sanitizePrefixInput = () => {
+      if (!prefix) return;
+      const cleaned = prefix.value.replace(/\D/g, '').slice(0, 2);
+      if (cleaned !== prefix.value) {
+        prefix.value = cleaned;
+      }
+    };
+
+    const update = () => {
+      sanitizeIpv4Input();
+      sanitizePrefixInput();
+      const rawIp = (address?.value || '').trim();
+      const rawPrefix = (prefix?.value || '').trim();
+      const prefixValue = rawPrefix === '' ? NaN : Number(rawPrefix);
+      const validPrefix = Number.isInteger(prefixValue) && prefixValue >= 0 && prefixValue <= 30;
+      const parsedIp = parseIpv4(rawIp);
+
+      if (cidr) cidr.textContent = `${rawIp || '0.0.0.0'}/${validPrefix ? prefixValue : '—'}`;
+      if (track) track.style.setProperty('--boundary-fill', `${validPrefix ? Math.max(4, ((32 - prefixValue) / 32) * 100) : 0}%`);
+
+      if (validPrefix) {
+        const totalCount = 2 ** (32 - prefixValue);
+        const maskInt = prefixValue === 0 ? 0 : (0xffffffff << (32 - prefixValue)) >>> 0;
+        if (total) total.textContent = numberFormat.format(totalCount);
+        if (usable) usable.textContent = numberFormat.format(Math.max(0, totalCount - 2));
+        if (maskNode) maskNode.textContent = formatIpv4(maskInt);
+
+        if (parsedIp !== null) {
+          const networkInt = (parsedIp & maskInt) >>> 0;
+          const broadcastInt = (networkInt | ((~maskInt) >>> 0)) >>> 0;
+          const networkStr = formatIpv4(networkInt);
+          const broadcastStr = formatIpv4(broadcastInt);
+          if (rangeNode) rangeNode.textContent = `${networkStr} – ${broadcastStr}`;
+
+          if (parsedIp === networkInt) {
+            suggestedNetwork = '';
+            if (fixBox) fixBox.hidden = true;
+            if (fixAction) fixAction.hidden = true;
+            setStatus('is-valid', 'Valid boundary');
+          } else {
+            suggestedNetwork = networkStr;
+            setStatus('is-warn', 'Host IP — not aligned');
+            if (fixBox && fixText && fixBtn) {
+              if (fixTitle) fixTitle.textContent = 'Host address detected';
+              fixText.textContent = `${rawIp} has host bits set for /${prefixValue}. All host bits must be 0.`;
+              fixBtn.textContent = `Use ${networkStr}/${prefixValue}`;
+              if (fixAction) fixAction.hidden = false;
+              fixBox.hidden = false;
+            }
+          }
+          return;
+        }
+      } else {
+        if (total) total.textContent = '—';
+        if (usable) usable.textContent = '—';
+        if (maskNode) maskNode.textContent = '—';
+      }
+
+      if (rangeNode) rangeNode.textContent = '—';
+      suggestedNetwork = '';
+      if (fixAction) fixAction.hidden = true;
+      if (!rawIp && !rawPrefix) {
+        if (fixBox) fixBox.hidden = true;
+        setStatus('', 'Enter IP & prefix');
+      } else if (rawIp && parsedIp === null) {
+        setStatus('is-warn', 'Invalid IPv4 format');
+        if (fixBox && fixText) {
+          if (fixTitle) fixTitle.textContent = 'Invalid IPv4 address';
+          fixText.textContent = 'Enter four numbers from 0 to 255 separated by dots (e.g. 192.168.10.0).';
+          fixBox.hidden = false;
+        }
+      } else if (rawPrefix && !validPrefix) {
+        setStatus('is-warn', 'Prefix must be 0–30');
+        if (fixBox && fixText) {
+          if (fixTitle) fixTitle.textContent = 'Unsupported prefix length';
+          fixText.textContent = 'Choose a prefix between /0 and /30 so at least 2 usable host addresses fit.';
+          fixBox.hidden = false;
+        }
+      } else {
+        if (fixBox) fixBox.hidden = true;
+        setStatus('', 'Enter IP & prefix');
+      }
+    };
+
+    fixBtn?.addEventListener('click', () => {
+      if (!suggestedNetwork || !address) return;
+      address.value = suggestedNetwork;
+      address.focus();
+      update();
+    });
+
+    editor.querySelectorAll('[data-preset-network]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (address) address.value = btn.dataset.presetNetwork || '';
+        if (prefix) prefix.value = btn.dataset.presetPrefix || '';
+        update();
+      });
+    });
+
     address?.addEventListener('input', update);
     prefix?.addEventListener('input', update);
     update();

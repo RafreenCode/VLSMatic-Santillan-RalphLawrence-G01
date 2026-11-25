@@ -49,12 +49,14 @@ class UnifiedAdminConsoleTests(TestCase):
     def test_regular_user_cannot_access_admin_console_endpoints(self):
         self.client.force_login(self.alice)
         self.assertEqual(self.client.get(reverse("dashboard:admin_user_create")).status_code, 403)
-        self.assertEqual(self.client.get(reverse("dashboard:admin_user_detail", args=[self.bob.pk])).status_code, 403)
         self.assertEqual(
-            self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.bob.pk])).status_code, 403
+            self.client.get(reverse("dashboard:admin_user_detail", args=[self.bob.username])).status_code, 403
         )
         self.assertEqual(
-            self.client.post(reverse("dashboard:admin_user_change_role", args=[self.bob.pk])).status_code, 403
+            self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.bob.username])).status_code, 403
+        )
+        self.assertEqual(
+            self.client.post(reverse("dashboard:admin_user_change_role", args=[self.bob.username])).status_code, 403
         )
 
     def test_admin_dashboard_lists_and_filters_users(self):
@@ -66,16 +68,24 @@ class UnifiedAdminConsoleTests(TestCase):
 
     def test_user_to_projects_to_project_details_hierarchy(self):
         self.client.force_login(self.admin)
-        user_resp = self.client.get(reverse("dashboard:admin_user_detail", args=[self.alice.pk]))
+        user_resp = self.client.get(reverse("dashboard:admin_user_detail", args=[self.alice.username]))
         self.assertEqual(user_resp.status_code, 200)
         self.assertContains(user_resp, "Alice Campus LAN")
         self.assertNotContains(user_resp, "Bob Branch WAN")
 
-        project_resp = self.client.get(reverse("network_projects:detail", args=[self.alice_project.pk]))
+        project_resp = self.client.get(
+            reverse("dashboard:admin_user_project_detail", args=[self.alice.username, self.alice_project.slug])
+        )
         self.assertEqual(project_resp.status_code, 200)
         self.assertContains(project_resp, "Admin Console")
         self.assertContains(project_resp, "@alice")
         self.assertContains(project_resp, "Read-only oversight")
+
+        # Mismatched owner + project slug returns 404
+        mismatch_resp = self.client.get(
+            reverse("dashboard:admin_user_project_detail", args=[self.bob.username, self.alice_project.slug])
+        )
+        self.assertEqual(mismatch_resp.status_code, 404)
 
     def test_admin_projects_page_is_personal_to_admin(self):
         self.client.force_login(self.admin)
@@ -86,19 +96,19 @@ class UnifiedAdminConsoleTests(TestCase):
 
     def test_admin_can_toggle_active_and_change_role_for_other_users(self):
         self.client.force_login(self.admin)
-        self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.alice.pk]))
+        self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.alice.username]))
         self.alice.refresh_from_db()
         self.assertFalse(self.alice.is_active)
 
-        self.client.post(reverse("dashboard:admin_user_change_role", args=[self.bob.pk]))
+        self.client.post(reverse("dashboard:admin_user_change_role", args=[self.bob.username]))
         self.bob.refresh_from_db()
         self.assertEqual(self.bob.role, User.Role.ADMIN)
         self.assertTrue(self.bob.is_staff)
 
     def test_admin_cannot_deactivate_or_demote_self(self):
         self.client.force_login(self.admin)
-        self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.admin.pk]))
-        self.client.post(reverse("dashboard:admin_user_change_role", args=[self.admin.pk]))
+        self.client.post(reverse("dashboard:admin_user_toggle_active", args=[self.admin.username]))
+        self.client.post(reverse("dashboard:admin_user_change_role", args=[self.admin.username]))
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
         self.assertEqual(self.admin.role, User.Role.ADMIN)
@@ -119,6 +129,6 @@ class UnifiedAdminConsoleTests(TestCase):
             },
         )
         created = User.objects.get(username="charlie")
-        self.assertRedirects(resp, reverse("dashboard:admin_user_detail", args=[created.pk]))
+        self.assertRedirects(resp, reverse("dashboard:admin_user_detail", args=[created.username]))
         self.assertEqual(created.role, User.Role.USER)
         self.assertFalse(created.is_staff)

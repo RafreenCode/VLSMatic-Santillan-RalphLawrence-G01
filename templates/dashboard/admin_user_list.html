@@ -55,7 +55,7 @@
               {% endif %}
             </div>
             <div class="admin-user-row__copy">
-              <a class="admin-user-row__name" href="{% url 'dashboard:admin_user_detail' account.id %}">
+              <a class="admin-user-row__name" href="{% url 'dashboard:admin_user_detail' account.username %}">
                 {{ account.get_full_name|default:account.username }}
                 <small>@{{ account.username }}</small>
               </a>
@@ -67,7 +67,7 @@
             <span class="status-pill{% if account.is_vlsmatic_admin %} status-pill--admin{% else %} status-pill--user{% endif %}">{{ account.role_record.name }}</span>
             <span class="status-pill{% if account.is_active %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if account.is_active %}Active{% else %}Inactive{% endif %}</span>
             {% for grp in account.workspace_groups.all %}
-              <a class="group-tag" href="{% url 'dashboard:admin_group_detail' grp.id %}">{{ grp.name }}</a>
+              <a class="group-tag" href="{% url 'dashboard:admin_group_detail' grp.slug %}">{{ grp.name }}</a>
             {% endfor %}
           </div>
 
@@ -77,7 +77,7 @@
           </div>
 
           <div class="admin-user-row__actions">
-            <a class="action-chip" href="{% url 'dashboard:admin_user_detail' account.id %}">
+            <a class="action-chip" href="{% url 'dashboard:admin_user_detail' account.username %}">
               <span>Manage user</span>
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
             </a>

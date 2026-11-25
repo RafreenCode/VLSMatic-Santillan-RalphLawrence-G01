@@ -54,6 +54,7 @@ class AdminGroupsAndJoinCodeTests(TestCase):
         group = WorkspaceGroup.objects.create(name="CSIT327 G01", created_by=self.admin)
         self.assertEqual(len(group.join_code), 9)
         self.assertEqual(group.join_code[4], "-")
+        self.assertTrue(group.slug.startswith("csit327-g01-"))
 
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
@@ -72,26 +73,26 @@ class AdminGroupsAndJoinCodeTests(TestCase):
             {"name": "Networking Lab A", "description": "Tuesday cohort", "is_joinable": True},
         )
         group = WorkspaceGroup.objects.get(name="Networking Lab A")
-        self.assertRedirects(create_resp, reverse("dashboard:admin_group_detail", args=[group.pk]))
+        self.assertRedirects(create_resp, reverse("dashboard:admin_group_detail", args=[group.slug]))
         old_code = group.join_code
 
-        self.client.post(reverse("dashboard:admin_group_regenerate_code", args=[group.pk]))
+        self.client.post(reverse("dashboard:admin_group_regenerate_code", args=[group.slug]))
         group.refresh_from_db()
         self.assertNotEqual(group.join_code, old_code)
 
-        self.client.post(reverse("dashboard:admin_group_toggle_joinable", args=[group.pk]))
+        self.client.post(reverse("dashboard:admin_group_toggle_joinable", args=[group.slug]))
         group.refresh_from_db()
         self.assertFalse(group.is_joinable)
 
         self.client.post(
-            reverse("dashboard:admin_group_update", args=[group.pk]),
+            reverse("dashboard:admin_group_update", args=[group.slug]),
             {"name": "Networking Lab A Updated", "description": "Updated", "is_joinable": True},
         )
         group.refresh_from_db()
         self.assertEqual(group.name, "Networking Lab A Updated")
         self.assertTrue(group.is_joinable)
 
-        del_resp = self.client.post(reverse("dashboard:admin_group_delete", args=[group.pk]))
+        del_resp = self.client.post(reverse("dashboard:admin_group_delete", args=[group.slug]))
         self.assertRedirects(del_resp, reverse("dashboard:admin_group_list"))
         self.assertFalse(WorkspaceGroup.objects.filter(pk=group.pk).exists())
 
@@ -100,14 +101,12 @@ class AdminGroupsAndJoinCodeTests(TestCase):
         raw_lowercase = group.join_code.replace("-", "").lower()
 
         self.client.force_login(self.alice)
-        # Valid lowercase/unhyphenated code works
         resp = self.client.post(reverse("dashboard:user_join_group"), {"join_code": raw_lowercase}, follow=True)
         self.assertRedirects(resp, reverse("dashboard:user"))
         self.assertTrue(GroupMembership.objects.filter(group=group, user=self.alice).exists())
         self.assertContains(resp, "CSIT327 Section G01")
 
-        # Leaving removes membership cleanly
-        leave_resp = self.client.post(reverse("dashboard:user_leave_group", args=[group.pk]), follow=True)
+        leave_resp = self.client.post(reverse("dashboard:user_leave_group", args=[group.slug]), follow=True)
         self.assertRedirects(leave_resp, reverse("dashboard:user"))
         self.assertFalse(GroupMembership.objects.filter(group=group, user=self.alice).exists())
 
@@ -128,8 +127,8 @@ class AdminGroupsAndJoinCodeTests(TestCase):
 
         self.client.force_login(self.alice)
         self.assertEqual(self.client.get(reverse("dashboard:admin_group_list")).status_code, 403)
-        self.assertEqual(self.client.get(reverse("dashboard:admin_group_detail", args=[group.pk])).status_code, 403)
-        self.assertEqual(self.client.post(reverse("dashboard:admin_group_delete", args=[group.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("dashboard:admin_group_detail", args=[group.slug])).status_code, 403)
+        self.assertEqual(self.client.post(reverse("dashboard:admin_group_delete", args=[group.slug])).status_code, 403)
 
         self.client.force_login(self.admin)
         self.assertEqual(
@@ -141,25 +140,36 @@ class AdminGroupsAndJoinCodeTests(TestCase):
         self.client.force_login(self.admin)
 
         # Admin enrolls Alice manually
-        self.client.post(reverse("dashboard:admin_group_add_member", args=[group.pk]), {"user": self.alice.pk})
+        self.client.post(reverse("dashboard:admin_group_add_member", args=[group.slug]), {"user": self.alice.pk})
         self.assertTrue(GroupMembership.objects.filter(group=group, user=self.alice, added_by=self.admin).exists())
 
         # Group detail shows Alice & Alice's project, NOT Bob or Bob's project
-        group_resp = self.client.get(reverse("dashboard:admin_group_detail", args=[group.pk]))
+        group_resp = self.client.get(reverse("dashboard:admin_group_detail", args=[group.slug]))
         self.assertEqual(group_resp.status_code, 200)
         self.assertContains(group_resp, "@alice")
         self.assertContains(group_resp, "Alice Lab Network")
         self.assertNotContains(group_resp, "Bob Standalone Network")
 
-        # User detail with ?group= renders Group breadcrumb
-        user_resp = self.client.get(reverse("dashboard:admin_user_detail", args=[self.alice.pk]), {"group": group.pk})
+        # True hierarchical Group -> Member URL
+        user_resp = self.client.get(
+            reverse("dashboard:admin_group_member_detail", args=[group.slug, self.alice.username])
+        )
         self.assertEqual(user_resp.status_code, 200)
         self.assertContains(user_resp, "CSIT327 Lab B")
         self.assertContains(user_resp, "Alice Lab Network")
 
-        # Project detail with ?group= renders full Group -> User -> Project breadcrumb
+        # Non-member Bob under this group returns 404
+        non_member_resp = self.client.get(
+            reverse("dashboard:admin_group_member_detail", args=[group.slug, self.bob.username])
+        )
+        self.assertEqual(non_member_resp.status_code, 404)
+
+        # True hierarchical Group -> Member -> Project URL
         proj_resp = self.client.get(
-            reverse("network_projects:detail", args=[self.alice_project.pk]), {"group": group.pk}
+            reverse(
+                "dashboard:admin_group_member_project_detail",
+                args=[group.slug, self.alice.username, self.alice_project.slug],
+            )
         )
         self.assertEqual(proj_resp.status_code, 200)
         self.assertContains(proj_resp, "CSIT327 Lab B")
@@ -170,8 +180,7 @@ class AdminGroupsAndJoinCodeTests(TestCase):
         users_resp = self.client.get(reverse("dashboard:admin_user_list"), {"group": group.pk})
         self.assertEqual(users_resp.status_code, 200)
         self.assertEqual([u.username for u in users_resp.context["users"]], ["alice"])
-        self.assertNotContains(users_resp, "Review all projects")
 
         # Remove member from group
-        self.client.post(reverse("dashboard:admin_group_remove_member", args=[group.pk, self.alice.pk]))
+        self.client.post(reverse("dashboard:admin_group_remove_member", args=[group.slug, self.alice.username]))
         self.assertFalse(GroupMembership.objects.filter(group=group, user=self.alice).exists())

@@ -5,7 +5,7 @@
 {% include "accounts/partials/app_header.html" %}
 <main id="main-content" class="studio-shell boundary-editor" data-boundary-editor>
   <header class="editor-heading">
-    <a class="back-pill" href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>{% if project %}Back to {{ project.name }}{% else %}Back to projects{% endif %}</span></a>
+    <a class="back-pill" href="{% if project %}{% url 'network_projects:detail' project.slug %}{% else %}{% url 'network_projects:list' %}{% endif %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg><span>{% if project %}Back to {{ project.name }}{% else %}Back to projects{% endif %}</span></a>
     <h1>{{ heading }}</h1>
     <p>Set the address boundary. Every subnet requirement will be validated and allocated inside it.</p>
   </header>
@@ -16,25 +16,75 @@
         {% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}
         {% include "accounts/partials/field.html" with field=form.name %}
         {% include "accounts/partials/field.html" with field=form.description %}
+        <div class="boundary-presets" aria-label="Starter network presets">
+          <span class="boundary-presets__label">Quick-fill common lab networks</span>
+          <div class="boundary-presets__row">
+            <button type="button" class="boundary-preset-btn" data-preset-network="192.168.10.0" data-preset-prefix="24">
+              <code>192.168.10.0/24</code><span>Small lab · 254 hosts</span>
+            </button>
+            <button type="button" class="boundary-preset-btn" data-preset-network="192.168.1.0" data-preset-prefix="25">
+              <code>192.168.1.0/25</code><span>Classroom · 126 hosts</span>
+            </button>
+            <button type="button" class="boundary-preset-btn" data-preset-network="172.16.0.0" data-preset-prefix="22">
+              <code>172.16.0.0/22</code><span>Building · 1,022 hosts</span>
+            </button>
+            <button type="button" class="boundary-preset-btn" data-preset-network="10.0.0.0" data-preset-prefix="16">
+              <code>10.0.0.0/16</code><span>Campus · 65,534 hosts</span>
+            </button>
+          </div>
+        </div>
         <div class="field-grid field-grid--two">
-          {% include "accounts/partials/field.html" with field=form.base_network %}
-          {% include "accounts/partials/field.html" with field=form.prefix_length %}
+          <div class="field{% if form.base_network.errors %} field--error{% endif %}">
+            <label class="field__label" for="{{ form.base_network.id_for_label }}">{{ form.base_network.label }}{% if form.base_network.field.required %}<span class="field__required" aria-hidden="true">*</span>{% endif %}</label>
+            {{ form.base_network }}
+            {% if form.base_network.help_text %}<p class="field__help">{{ form.base_network.help_text }}</p>{% endif %}
+          </div>
+          <div class="field{% if form.prefix_length.errors %} field--error{% endif %}">
+            <label class="field__label" for="{{ form.prefix_length.id_for_label }}">{{ form.prefix_length.label }}{% if form.prefix_length.field.required %}<span class="field__required" aria-hidden="true">*</span>{% endif %}</label>
+            {{ form.prefix_length }}
+            {% if form.prefix_length.help_text %}<p class="field__help">{{ form.prefix_length.help_text }}</p>{% endif %}
+          </div>
         </div>
         <div class="form-actions">
           <button class="button button--brand" type="submit">Save project</button>
-          <a class="button button--quiet" href="{% if project %}{% url 'network_projects:detail' project.id %}{% else %}{% url 'network_projects:list' %}{% endif %}">Cancel</a>
+          <a class="button button--quiet" href="{% if project %}{% url 'network_projects:detail' project.slug %}{% else %}{% url 'network_projects:list' %}{% endif %}">Cancel</a>
         </div>
       </form>
     </section>
     <aside class="boundary-preview" aria-live="polite">
-      <span>Network boundary</span>
-      <strong data-boundary-cidr>{% if project %}{{ project.cidr }}{% else %}192.168.1.0/24{% endif %}</strong>
+      <div class="boundary-preview__head">
+        <span>Network boundary</span>
+        <span class="boundary-status" data-boundary-status>Waiting for input</span>
+      </div>
+      <strong data-boundary-cidr>{% if project %}{{ project.cidr }}{% else %}192.168.10.0/24{% endif %}</strong>
       <div class="boundary-preview__track"><i data-boundary-track></i></div>
-      <dl>
+
+      <div class="boundary-fix-box" data-boundary-fix-box{% if not form.base_network.errors and not form.prefix_length.errors %} hidden{% endif %}>
+        <div class="boundary-fix-box__head">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          <strong data-boundary-fix-title>{% if form.base_network.errors or form.prefix_length.errors %}Boundary needs adjustment{% else %}Host address detected{% endif %}</strong>
+        </div>
+        <p class="boundary-fix-box__copy" data-boundary-fix-text>{% if form.base_network.errors %}{{ form.base_network.errors.0 }}{% elif form.prefix_length.errors %}{{ form.prefix_length.errors.0 }}{% endif %}</p>
+        <div class="boundary-fix-box__action" data-boundary-fix-action{% if not form.base_network.errors %} hidden{% endif %}>
+          <button type="button" class="button button--brand button--sm" data-boundary-apply-fix>Use suggested network</button>
+        </div>
+      </div>
+
+      <dl class="boundary-preview__grid">
         <div><dt>Total addresses</dt><dd data-boundary-total>—</dd></div>
-        <div><dt>Planning mode</dt><dd>Largest need first</dd></div>
+        <div><dt>Max usable hosts</dt><dd data-boundary-usable>—</dd></div>
+        <div><dt>Subnet mask</dt><dd data-boundary-mask>—</dd></div>
+        <div><dt>Block range</dt><dd data-boundary-range>—</dd></div>
       </dl>
-      <p>Host addresses are not accepted as project boundaries. Use the first address in the selected CIDR block.</p>
+
+      <details class="boundary-guide" open>
+        <summary>Student guide: How to pick a valid base network</summary>
+        <ul>
+          <li><b>Network address only:</b> All host bits must be <code>0</code> (e.g., <code>192.168.10.0/24</code> is valid; <code>192.168.10.1/24</code> is a host IP).</li>
+          <li><b>Smaller prefix = larger space:</b> Each step down doubles capacity (<code>/24</code> = 256 IPs, <code>/23</code> = 512, <code>/22</code> = 1,024).</li>
+          <li><b>Private ranges (RFC 1918):</b> Use <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, or <code>192.168.0.0/16</code> for lab projects.</li>
+        </ul>
+      </details>
     </aside>
   </div>
 </main>

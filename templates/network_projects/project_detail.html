@@ -15,11 +15,11 @@
         {% if source_group %}
         <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
         <span aria-hidden="true">/</span>
-        <a href="{% url 'dashboard:admin_group_detail' source_group.id %}">{{ source_group.name }}</a>
+        <a href="{% url 'dashboard:admin_group_detail' source_group.slug %}">{{ source_group.name }}</a>
         <span aria-hidden="true">/</span>
-        <a href="{% url 'dashboard:admin_user_detail' project.owner.id %}?group={{ source_group.id }}">@{{ project.owner.username }}</a>
+        <a href="{% url 'dashboard:admin_group_member_detail' source_group.slug project.owner.username %}">@{{ project.owner.username }}</a>
         {% else %}
-        <a href="{% url 'dashboard:admin_user_detail' project.owner.id %}">@{{ project.owner.username }}</a>
+        <a href="{% url 'dashboard:admin_user_detail' project.owner.username %}">@{{ project.owner.username }}</a>
         {% endif %}
         <span aria-hidden="true">/</span>
         <span aria-current="page">{{ project.name }}</span>
@@ -42,7 +42,7 @@
           <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
         </svg><span>Edit boundary</span></button>
       <button type="button" class="button button--danger-ghost" data-delete-modal
-        data-delete-action="{% url 'network_projects:delete' project.id %}"
+        data-delete-action="{% url 'network_projects:delete' project.slug %}"
         data-delete-title="Delete {{ project.name }}?"
         data-delete-body="This permanently removes this project, all subnet requirements, and its saved IPv4 allocation."
         data-delete-confirm="Delete project"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -103,7 +103,7 @@
       </div>
       {% if not read_only %}
       <form class="quick-add quick-add--studio" method="post"
-        action="{% url 'network_projects:requirement_create' project.id %}">
+        action="{% url 'network_projects:requirement_create' project.slug %}">
         {% csrf_token %}
         <input type="hidden" name="from_studio" value="1">
         <label><span>Subnet name</span><input name="name" required maxlength="100"
@@ -181,14 +181,14 @@
           {% if not read_only %}
           <div class="requirement-card__actions">
             <button type="button" class="action-chip" data-edit-req-modal
-              data-edit-action="{% url 'network_projects:requirement_update' requirement.id %}"
+              data-edit-action="{% url 'network_projects:requirement_update' project.slug requirement.id %}"
               data-edit-name="{{ requirement.name }}"
               data-edit-hosts="{{ requirement.required_hosts }}"><svg
                 class="icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
               </svg><span>Edit</span></button>
             <button type="button" class="action-chip action-chip--danger" data-delete-modal
-              data-delete-action="{% url 'network_projects:requirement_delete' requirement.id %}"
+              data-delete-action="{% url 'network_projects:requirement_delete' project.slug requirement.id %}"
               data-delete-title="Remove {{ requirement.name }}?"
               data-delete-body="This subnet requirement will be removed and the remaining subnets will recalculate automatically."
               data-delete-confirm="Remove subnet"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -396,7 +396,7 @@
         </div>
         <h2 id="edit-project-modal-title">Edit network boundary</h2>
         <p>Changes recalculate all saved subnets atomically inside {{ project.cidr }}.</p>
-        <form class="studio-form studio-modal__form" method="post" action="{% url 'network_projects:update' project.id %}">
+        <form class="studio-form studio-modal__form" method="post" action="{% url 'network_projects:update' project.slug %}">
           {% csrf_token %}
           <div class="field">
             <label for="modal-project-name">Project name</label>
