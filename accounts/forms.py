@@ -99,4 +99,3 @@ class ProfileForm(UniqueEmailMixin, forms.ModelForm):
         optimized = SimpleUploadedFile("profile.webp", output.getvalue(), content_type="image/webp")
         optimized.image_format = "WEBP"
         return optimized
-
