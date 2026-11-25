@@ -67,6 +67,13 @@ class User(AbstractUser):
     contact_number = models.CharField(max_length=30, blank=True)
     profile_photo_path = models.CharField(max_length=500, blank=True)
 
+    class Meta(AbstractUser.Meta):
+        constraints = [models.UniqueConstraint(Lower("email"), name="unique_user_email_ci")]
+
+    def save(self, *args, **kwargs):
+        self.email = self.email.strip().lower()
+        return super().save(*args, **kwargs)
+
     @property
     def is_vlsmatic_admin(self) -> bool:
         return self.role == self.Role.ADMIN

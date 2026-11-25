@@ -308,7 +308,7 @@
                 <p>{{ membership.group.description|default:"Connected workspace group" }}</p>
                 <small>Joined {{ membership.joined_at|date:"M j, Y" }}</small>
               </div>
-              <form method="post" action="{% url 'dashboard:user_leave_group' membership.group.slug %}">
+              <form method="post" action="{% url 'dashboard:user_leave_group' membership.group.slug %}" data-confirm="Leave this group? Your projects will be kept.">
                 {% csrf_token %}
                 <button type="submit" class="button button--danger-ghost button--sm">Leave</button>
               </form>

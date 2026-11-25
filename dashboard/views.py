@@ -1,16 +1,18 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import GroupMembership, User, WorkspaceGroup
+from accounts.integrity import is_unique_conflict
 from network_projects.models import NetworkProject, SubnetRequirement
 from network_projects.services import allocation_visualization, project_summary
 from network_projects.views import render_project_studio
 
-from .decorators import role_required
+from .decorators import role_required, serialize_admin_changes
 from .forms import (
     AdminGroupAddMemberForm,
     AdminUserCreateForm,
@@ -70,9 +72,9 @@ def _filter_users_queryset(request):
                 | Q(last_name__icontains=query)
             )
         if group_val == "unassigned":
-            users_qs = users_qs.filter(group_memberships__isnull=True)
+            users_qs = users_qs.exclude(pk__in=GroupMembership.objects.values("user_id"))
         elif group_val.isdigit():
-            users_qs = users_qs.filter(group_memberships__group_id=int(group_val))
+            users_qs = users_qs.filter(pk__in=GroupMembership.objects.filter(group_id=int(group_val)).values("user_id"))
         if role:
             users_qs = users_qs.filter(role_record_id=role)
         if status == "active":
@@ -166,6 +168,7 @@ def user_dashboard(request):
 
 @role_required(User.Role.USER)
 @require_POST
+@transaction.atomic
 def user_join_group(request):
     form = JoinGroupCodeForm(request.POST)
     if not form.is_valid():
@@ -173,7 +176,7 @@ def user_join_group(request):
         return redirect("dashboard:user")
 
     code = form.cleaned_data["join_code"]
-    group = WorkspaceGroup.objects.filter(join_code=code).first()
+    group = WorkspaceGroup.objects.select_for_update().filter(join_code=code).first()
     if group is None:
         messages.error(request, f"No group matched join code {code}. Check the code and try again.")
         return redirect("dashboard:user")
@@ -257,8 +260,9 @@ def admin_group_list(request):
 
 
 @role_required(User.Role.ADMIN)
+@serialize_admin_changes
 def admin_group_create(request):
-    form = WorkspaceGroupForm(request.POST or None)
+    form = WorkspaceGroupForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         group = form.save(commit=False)
         group.created_by = request.user
@@ -325,9 +329,11 @@ def admin_group_detail(request, group_slug):
 
 
 @role_required(User.Role.ADMIN)
+@serialize_admin_changes
 def admin_group_update(request, group_slug):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
-    form = WorkspaceGroupForm(request.POST or None, instance=group)
+    groups = WorkspaceGroup.objects.select_for_update() if request.method == "POST" else WorkspaceGroup.objects.all()
+    group = get_object_or_404(groups, slug=group_slug)
+    form = WorkspaceGroupForm(request.POST if request.method == "POST" else None, instance=group)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, f'Updated group "{group.name}".')
@@ -341,8 +347,9 @@ def admin_group_update(request, group_slug):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_group_delete(request, group_slug):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    group = get_object_or_404(WorkspaceGroup.objects.select_for_update(), slug=group_slug)
     name = group.name
     group.delete()
     messages.success(request, f'Deleted group "{name}".')
@@ -351,8 +358,9 @@ def admin_group_delete(request, group_slug):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_group_regenerate_code(request, group_slug):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    group = get_object_or_404(WorkspaceGroup.objects.select_for_update(), slug=group_slug)
     new_code = group.regenerate_join_code()
     messages.success(request, f'Generated new join code {new_code} for "{group.name}".')
     return redirect("dashboard:admin_group_detail", group_slug=group.slug)
@@ -360,8 +368,9 @@ def admin_group_regenerate_code(request, group_slug):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_group_toggle_joinable(request, group_slug):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    group = get_object_or_404(WorkspaceGroup.objects.select_for_update(), slug=group_slug)
     group.is_joinable = not group.is_joinable
     group.save(update_fields=["is_joinable", "updated_at"])
     state = "reopened" if group.is_joinable else "paused"
@@ -371,8 +380,9 @@ def admin_group_toggle_joinable(request, group_slug):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_group_add_member(request, group_slug):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    group = get_object_or_404(WorkspaceGroup.objects.select_for_update(), slug=group_slug)
     form = AdminGroupAddMemberForm(request.POST, group=group)
     if form.is_valid():
         member = form.cleaned_data["user"]
@@ -385,8 +395,9 @@ def admin_group_add_member(request, group_slug):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_group_remove_member(request, group_slug, username):
-    group = get_object_or_404(WorkspaceGroup, slug=group_slug)
+    group = get_object_or_404(WorkspaceGroup.objects.select_for_update(), slug=group_slug)
     membership = get_object_or_404(
         GroupMembership.objects.select_related("user"),
         group=group,
@@ -397,11 +408,14 @@ def admin_group_remove_member(request, group_slug, username):
     return redirect("dashboard:admin_group_detail", group_slug=group.slug)
 
 
+@serialize_admin_changes
 def _render_admin_user_detail(request, target_user, source_group=None):
+    if request.method == "POST":
+        target_user = get_object_or_404(User.objects.select_for_update(), pk=target_user.pk)
     is_self = target_user.pk == request.user.pk
     last_active_admin = _is_last_active_admin(target_user)
 
-    form = AdminUserUpdateForm(request.POST or None, instance=target_user)
+    form = AdminUserUpdateForm(request.POST if request.method == "POST" else None, instance=target_user)
     if request.method == "POST" and form.is_valid():
         new_role = form.cleaned_data["role_record"].code
         if is_self and new_role != User.Role.ADMIN:
@@ -411,15 +425,22 @@ def _render_admin_user_detail(request, target_user, source_group=None):
         else:
             updated = form.save(commit=False)
             updated.is_staff = new_role == User.Role.ADMIN
-            updated.save()
-            messages.success(request, f"Updated account details for @{updated.username}.")
-            if source_group:
-                return redirect(
-                    "dashboard:admin_group_member_detail",
-                    group_slug=source_group.slug,
-                    username=updated.username,
-                )
-            return redirect("dashboard:admin_user_detail", username=updated.username)
+            try:
+                with transaction.atomic():
+                    updated.save()
+            except IntegrityError as error:
+                if not is_unique_conflict(error):
+                    raise
+                form.add_error("email", "An account with this email address already exists.")
+            else:
+                messages.success(request, f"Updated account details for @{updated.username}.")
+                if source_group:
+                    return redirect(
+                        "dashboard:admin_group_member_detail",
+                        group_slug=source_group.slug,
+                        username=updated.username,
+                    )
+                return redirect("dashboard:admin_user_detail", username=updated.username)
 
     user_projects_qs = (
         target_user.network_projects.annotate(
@@ -467,12 +488,20 @@ def admin_user_list(request):
 
 
 @role_required(User.Role.ADMIN)
+@serialize_admin_changes
 def admin_user_create(request):
-    form = AdminUserCreateForm(request.POST or None)
+    form = AdminUserCreateForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
-        new_user = form.save()
-        messages.success(request, f"Account @{new_user.username} was created.")
-        return redirect("dashboard:admin_user_detail", username=new_user.username)
+        try:
+            with transaction.atomic():
+                new_user = form.save()
+        except IntegrityError as error:
+            if not is_unique_conflict(error):
+                raise
+            form.add_error(None, "This username or email was just registered. Use a different one.")
+        else:
+            messages.success(request, f"Account @{new_user.username} was created.")
+            return redirect("dashboard:admin_user_detail", username=new_user.username)
     return render(request, "dashboard/admin_user_form.html", {**_admin_tab_context("users"), "form": form})
 
 
@@ -517,6 +546,7 @@ def admin_group_member_project_detail(request, group_slug, username, project_slu
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_user_toggle_active(request, username):
     target_user = get_object_or_404(User, username=username)
     if target_user.pk == request.user.pk:
@@ -535,6 +565,7 @@ def admin_user_toggle_active(request, username):
 
 @role_required(User.Role.ADMIN)
 @require_POST
+@serialize_admin_changes
 def admin_user_change_role(request, username):
     target_user = get_object_or_404(User, username=username)
     if target_user.pk == request.user.pk:
