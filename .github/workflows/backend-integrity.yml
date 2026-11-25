@@ -26,6 +26,7 @@ jobs:
     env:
       APP_ENV: remote
       LOCAL_HTTP: "false"
+      SECURE_SSL_REDIRECT: "false"
       # Tests exercise DEBUG=False explicitly for production error pages.
       DEBUG: "true"
       DJANGO_SECRET_KEY: ci-only-secret-key-with-more-than-fifty-characters-123456789
