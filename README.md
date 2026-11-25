@@ -85,7 +85,7 @@ cd "VLSMatic-Santillan-RalphLawrence-G01"
 ### 2. Create and activate a virtual environment
 
 ```powershell
-
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -206,30 +206,50 @@ A Django superuser is a permission level, while Administrator is the custom VLSM
 | `/login/` | Authenticate an existing account |
 | `/logout/` | End the active session through a POST request |
 | `/dashboard/` | Redirect to the dashboard for the authenticated role |
-| `/dashboard/user/` | Regular User dashboard |
-| `/dashboard/administrator/` | Administrator dashboard |
+| `/dashboard/user/` | Regular User dashboard and group join-code panel |
+| `/groups/join/` | Join an open workspace group via POST with a join code |
+| `/console/` | Unified Administrator Console (Overview, Groups, Users) |
+| `/console/groups/<slug>/` | Manage a workspace group, join code, members, and member projects |
+| `/console/users/<username>/` | Regulate a user account and inspect their projects (read-only) |
 | `/profile/` | View and update the authenticated user's profile |
-| `/projects/` | List the current user's network projects |
-| `/projects/new/` | Create a network project |
-| `/projects/<id>/` | Manage requirements and view saved allocation results |
-| `/admin/` | Django administration for authorized staff |
+| `/projects/` | List the signed-in user's own network projects |
+| `/projects/new/` | Create a network project with live CIDR boundary validation |
+| `/projects/<slug>/` | Manage requirements and inspect saved VLSM allocation results |
+| `/admin/` | Redirects to the unified Administrator Console (`/console/`) |
 
 ## Testing
 
-Run the complete test suite:
+Run the complete Django test suite offline against an isolated local SQLite test database:
 
 ```powershell
-python manage.py test
+$env:APP_ENV="local"
+$env:DEBUG="True"
+$env:SECURE_SSL_REDIRECT="False"
+$env:PROFILE_PHOTO_STORAGE="local"
+.\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-Run Django configuration and migration checks:
+To run the full suite including PostgreSQL row-locking concurrency tests against an isolated local PostgreSQL instance:
 
 ```powershell
-python manage.py check
-python manage.py makemigrations --check --dry-run
+$env:APP_ENV="remote"
+$env:DATABASE_URL="postgresql://USER:PASSWORD@127.0.0.1:5432/postgres"
+$env:DATABASE_SSL_REQUIRE="False"
+$env:PROFILE_PHOTO_STORAGE="local"
+$env:DEBUG="True"
+$env:SECURE_SSL_REDIRECT="False"
+$env:PSYCOPG_IMPL="python"
+.\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-Tests must use an isolated test database and must not modify production data.
+Run Django configuration and migration drift checks:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py check
+.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
+```
+
+Tests must always use an isolated test database and must never target production data.
 
 ## Vercel deployment
 
@@ -256,17 +276,17 @@ Production `DATABASE_URL` should use the Supabase Transaction Pooler on port `65
 
 ## Development workflow
 
-Do not develop new features or meaningful changes directly on `main`.
+Do not develop features, hardening fixes, or documentation changes directly on `main` or `develop`.
 
-1. Update the local `main` branch.
-2. Create a focused branch such as `feature/subnet-calculator`, `fix/login-validation`, or `docs/setup-guide`.
-3. Implement and test the change. If it changes a model or migration, update [DATABASE.md](DATABASE.md) in the same branch.
-4. Commit with a clear message.
-5. Push the branch to GitHub.
-6. Open a pull request targeting `main`.
-7. Review and verify the pull request before merging.
+1. Update your local `develop` branch (`git checkout develop; git pull origin develop`).
+2. Create a focused work branch from `develop` (for example `hardening/data-integrity`, `test/pd3-regression-coverage`, `fix/login-validation`, or `docs/pd3-report-and-readme`).
+3. Implement and test the change. If it modifies a model or migration, update [DATABASE.md](DATABASE.md) in the same branch.
+4. Commit with a clear message and push the work branch to GitHub.
+5. Open a pull request targeting `develop` and wait for GitHub Actions PostgreSQL checks to pass before merging.
+6. Preserve merged work branches for audit history.
+7. Once an entire increment is complete and verified on `develop`, open a release pull request from `develop` into `main`.
 
-Keep `main` deployable and never commit secrets or generated environment files.
+Keep `main` deployable at all times and never commit secrets, `.env` files, or local database artifacts.
 
 ## Project credit
 
