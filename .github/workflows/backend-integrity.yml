@@ -26,7 +26,8 @@ jobs:
     env:
       APP_ENV: remote
       LOCAL_HTTP: "false"
-      DEBUG: "false"
+      # Tests exercise DEBUG=False explicitly for production error pages.
+      DEBUG: "true"
       DJANGO_SECRET_KEY: ci-only-secret-key-with-more-than-fifty-characters-123456789
       DATABASE_URL: postgresql://vlsmatic:vlsmatic@127.0.0.1:5432/vlsmatic_test
       DATABASE_SSL_REQUIRE: "false"

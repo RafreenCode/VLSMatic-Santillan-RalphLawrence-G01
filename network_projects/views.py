@@ -1,5 +1,4 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -8,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.models import User
+from dashboard.decorators import role_required
 
 from .forms import NetworkProjectForm, ProjectFilterForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
@@ -77,7 +77,7 @@ def _flash_studio_warning(request, title, form, extra=None):
     request.session["studio_warning"] = payload
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
 def project_list(request):
     projects = request.user.network_projects.annotate(
         requirement_count=Count("requirements", distinct=True),
@@ -99,7 +99,7 @@ def project_list(request):
     )
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
 def project_create(request):
     form = NetworkProjectForm(request.POST or None, owner=request.user)
     if request.method == "POST" and form.is_valid():
@@ -111,7 +111,7 @@ def project_create(request):
     return render(request, "network_projects/project_form.html", {"form": form, "heading": "Create a network project"})
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
 def project_detail(request, project_slug):
     project = get_object_or_404(NetworkProject.objects.select_related("owner"), slug=project_slug)
     if project.owner_id != request.user.pk:
@@ -125,7 +125,8 @@ def project_detail(request, project_slug):
     return render_project_studio(request, project, read_only=False)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
+@require_POST
 def project_update(request, project_slug):
     project = _owned_project(request, project_slug)
     if request.method != "POST":
@@ -151,7 +152,8 @@ def project_update(request, project_slug):
     return redirect("network_projects:detail", project_slug=project.slug)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
+@require_POST
 def project_delete(request, project_slug):
     project = _owned_project(request, project_slug)
     if request.method == "POST":
@@ -161,7 +163,8 @@ def project_delete(request, project_slug):
     return redirect("network_projects:detail", project_slug=project.slug)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
+@require_POST
 def requirement_create(request, project_slug):
     project = _owned_project(request, project_slug)
     if request.method != "POST":
@@ -192,7 +195,8 @@ def requirement_create(request, project_slug):
     return redirect("network_projects:detail", project_slug=project.slug)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
+@require_POST
 def requirement_update(request, project_slug, requirement_id):
     requirement = _owned_requirement(request, project_slug, requirement_id)
     if request.method != "POST":
@@ -212,7 +216,8 @@ def requirement_update(request, project_slug, requirement_id):
     return redirect("network_projects:detail", project_slug=requirement.project.slug)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
+@require_POST
 def requirement_delete(request, project_slug, requirement_id):
     requirement = _owned_requirement(request, project_slug, requirement_id)
     project = requirement.project
@@ -224,7 +229,7 @@ def requirement_delete(request, project_slug, requirement_id):
     return redirect("network_projects:detail", project_slug=project.slug)
 
 
-@login_required
+@role_required(User.Role.USER, User.Role.ADMIN)
 @require_POST
 def project_calculate(request, project_slug):
     project = _owned_project(request, project_slug)
