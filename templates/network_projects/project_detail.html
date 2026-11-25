@@ -1,44 +1,489 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}{{ project.name }} - VLSMatic{% endblock %}
+{% block title %}{{ project.name }} · VLSMatic{% endblock %}
 {% block body_class %}app-surface{% endblock %}
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="studio-shell allocation-studio" data-planning-studio data-prefix="{{ project.prefix_length }}">
+<main id="main-content" class="studio-shell allocation-studio" data-planning-studio
+  data-prefix="{{ project.prefix_length }}">
   <header class="project-command">
-    <div><a class="back-link" href="{% url 'network_projects:list' %}">All projects</a><h1>{{ project.name }}</h1><p>{{ project.description|default:"A saved IPv4 plan with automatic largest-first allocation." }}</p></div>
-    <div class="project-command__actions">{% if read_only %}<span class="plan-state">Read-only oversight</span>{% else %}<a class="button button--quiet" href="{% url 'network_projects:update' project.id %}">Edit boundary</a><a class="text-danger" href="{% url 'network_projects:delete' project.id %}">Delete project</a>{% endif %}</div>
+    <div>
+      {% if read_only %}
+      <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+        <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+        <span aria-hidden="true">/</span>
+        {% if source_group %}
+        <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
+        <span aria-hidden="true">/</span>
+        <a href="{% url 'dashboard:admin_group_detail' source_group.slug %}">{{ source_group.name }}</a>
+        <span aria-hidden="true">/</span>
+        <a href="{% url 'dashboard:admin_group_member_detail' source_group.slug project.owner.username %}">@{{ project.owner.username }}</a>
+        {% else %}
+        <a href="{% url 'dashboard:admin_user_detail' project.owner.username %}">@{{ project.owner.username }}</a>
+        {% endif %}
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{{ project.name }}</span>
+      </nav>
+      {% else %}
+      <a class="back-pill" href="{% url 'network_projects:list' %}"><svg class="icon" viewBox="0 0 24 24"
+          aria-hidden="true">
+          <path d="M19 12H5m6-6-6 6 6 6" />
+        </svg><span>All projects</span></a>
+      {% endif %}
+      <h1>{{ project.name }}</h1>
+      <p>{{ project.description|default:"A saved IPv4 plan with automatic largest-first allocation." }}</p>
+    </div>
+    <div class="project-command__actions">
+      {% if read_only %}
+      <span class="plan-state plan-state--active">Read-only oversight</span>
+      {% else %}
+      <button type="button" class="button button--quiet" data-edit-project-modal><svg class="icon"
+          viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg><span>Edit boundary</span></button>
+      <button type="button" class="button button--danger-ghost" data-delete-modal
+        data-delete-action="{% url 'network_projects:delete' project.slug %}"
+        data-delete-title="Delete {{ project.name }}?"
+        data-delete-body="This permanently removes this project, all subnet requirements, and its saved IPv4 allocation."
+        data-delete-confirm="Delete project"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 11v6m4-6v6" />
+        </svg><span>Delete project</span></button>
+      {% endif %}
+    </div>
   </header>
 
   <section class="network-console" aria-label="Network summary">
-    <div class="network-console__identity"><img src="{% static 'img/vlsmatic-icon.png' %}" alt=""><div><span>Planning boundary</span><strong>{{ project.cidr }}</strong><small>{{ summary.total_addresses }} total addresses</small></div></div>
-    <dl class="network-console__metrics"><div><dt>Subnets</dt><dd data-count="{{ summary.subnet_count }}">{{ summary.subnet_count }}</dd></div><div><dt>Required hosts</dt><dd data-count="{{ summary.total_required_hosts }}">{{ summary.total_required_hosts }}</dd></div><div><dt>Allocated</dt><dd data-count="{{ summary.allocated_addresses }}">{{ summary.allocated_addresses }}</dd></div><div><dt>Remaining</dt><dd data-count="{{ summary.remaining_addresses }}">{{ summary.remaining_addresses }}</dd></div></dl>
-    <div class="utilization-pair"><div><span>Host efficiency <b>{{ summary.host_efficiency|floatformat:1 }}%</b></span><i style="--value: {{ summary.host_efficiency|floatformat:2 }}%"></i></div><div><span>Address consumption <b>{{ summary.address_consumption|floatformat:1 }}%</b></span><i style="--value: {{ summary.address_consumption|floatformat:2 }}%"></i></div></div>
+    <div class="network-console__identity">
+      <div>
+        <span>Planning boundary</span>
+        <strong>{{ project.cidr }}</strong>
+        <small>{{ summary.total_addresses }} total addresses</small>
+      </div>
+    </div>
+    <dl class="network-console__metrics">
+      <div>
+        <dt>Subnets</dt>
+        <dd>{{ summary.subnet_count }}</dd>
+      </div>
+      <div>
+        <dt>Required hosts</dt>
+        <dd>{{ summary.total_required_hosts }}</dd>
+      </div>
+      <div>
+        <dt>Allocated</dt>
+        <dd>{{ summary.allocated_addresses }}</dd>
+      </div>
+      <div>
+        <dt>Remaining</dt>
+        <dd>{{ summary.remaining_addresses }}</dd>
+      </div>
+    </dl>
+    <div class="utilization-pair">
+      <div class="console-meter">
+        <span>Host efficiency <b>{{ summary.host_efficiency|floatformat:1 }}%</b></span>
+        <progress class="meter-bar meter-bar--console" value="{{ summary.host_efficiency|floatformat:2 }}" max="100"
+          aria-hidden="true"></progress>
+      </div>
+      <div class="console-meter">
+        <span>Address consumption <b>{{ summary.address_consumption|floatformat:1 }}%</b></span>
+        <progress class="meter-bar meter-bar--console" value="{{ summary.address_consumption|floatformat:2 }}" max="100"
+          aria-hidden="true"></progress>
+      </div>
+    </div>
   </section>
 
   <div class="studio-grid">
     <section class="requirements-dock" aria-labelledby="requirements-heading">
-      <div class="section-heading section-heading--studio"><div><h2 id="requirements-heading">Subnet requirements</h2><p>Saved inputs, recalculated as one plan.</p></div>{% if project.has_allocations %}<span class="plan-state plan-state--active">Current</span>{% endif %}</div>
-      {% if not read_only %}<form class="quick-add quick-add--studio" method="post" action="{% url 'network_projects:requirement_create' project.id %}">{% csrf_token %}<label><span>Subnet name</span><input name="name" required maxlength="100" placeholder="Computer laboratory"></label><label><span>Hosts</span><input name="required_hosts" required min="1" inputmode="numeric" type="number" placeholder="50"></label><button class="button button--brand" type="submit">Add subnet</button></form>{% endif %}
-      {% if requirements %}<div class="requirement-stack">{% for requirement in requirements %}<article class="requirement-card{% if forloop.first %} is-selected{% endif %}" data-requirement-id="{{ requirement.id }}"><button type="button" class="requirement-card__select" data-select-requirement="{{ requirement.id }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"><span><strong>{{ requirement.name }}</strong><small>{{ requirement.required_hosts }} required hosts</small></span><span><b>/{{ requirement.allocation.prefix_length }}</b><small>{{ requirement.allocation.usable_capacity }} usable</small></span><code>{{ requirement.allocation.network_address }}</code></button>{% if not read_only %}<div class="requirement-card__actions"><a href="{% url 'network_projects:requirement_update' requirement.id %}">Edit</a><a class="text-danger" href="{% url 'network_projects:requirement_delete' requirement.id %}">Remove</a></div>{% endif %}</article>{% endfor %}</div>{% else %}<div class="dock-empty"><h3>No subnet requirements yet</h3><p>Add a name and usable-host count. The allocation will appear here immediately after validation.</p></div>{% endif %}
+      <div class="section-heading section-heading--studio">
+        <div>
+          <h2 id="requirements-heading">Subnet requirements</h2>
+          <p>Saved inputs, recalculated as one plan.</p>
+        </div>
+        {% if project.has_allocations %}<span class="plan-state plan-state--active">Current</span>{% endif %}
+      </div>
+      {% if not read_only %}
+      <form class="quick-add quick-add--studio" method="post"
+        action="{% url 'network_projects:requirement_create' project.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="from_studio" value="1">
+        <label><span>Subnet name</span><input name="name" required maxlength="100"
+            value="{{ studio_warning.name|default:'' }}" placeholder="Computer laboratory"></label>
+        <label><span>Hosts</span><input name="required_hosts" required min="1"{% if summary.max_next_usable_hosts %} max="{{ summary.max_next_usable_hosts }}"{% endif %} inputmode="numeric" type="number"
+            data-hosts-input value="{{ studio_warning.required_hosts|default:'' }}"
+            placeholder="{% if summary.max_next_usable_hosts %}1–{{ summary.max_next_usable_hosts }}{% else %}0 left{% endif %}"></label>
+        <button class="button button--brand" type="submit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg><span>Add subnet</span></button>
+      </form>
+
+      <div class="capacity-guide" data-capacity-guide data-remaining-addresses="{{ summary.remaining_addresses }}"
+        data-max-single-hosts="{{ summary.max_next_usable_hosts }}"
+        data-max-single-prefix="{{ summary.max_next_prefix|default:'' }}"
+        data-max-project-hosts="{{ summary.max_project_usable_hosts }}"
+        data-project-cidr="{{ project.cidr }}">
+        <div class="capacity-guide__live" data-capacity-feedback aria-live="polite">
+          {% if summary.max_next_usable_hosts %}
+          <span>Max for 1 new subnet: <b>{{ summary.max_next_usable_hosts }} hosts</b>
+            (<code>/{{ summary.max_next_prefix }}</code> · {{ summary.max_next_block_size }} IPs)</span>
+          {% else %}
+          <span><b>Address space full</b> — {{ summary.remaining_addresses }} IPs left. Edit the boundary to
+            expand.</span>
+          {% endif %}
+        </div>
+
+        {% if summary.remaining_blocks|length > 1 %}
+        <div class="capacity-guide__split">
+          <span>Or fill all {{ summary.remaining_addresses }} free IPs across {{ summary.remaining_blocks|length }}
+            subnets ({{ summary.max_split_usable_hosts }} hosts):</span>
+          <div class="capacity-guide__chips">
+            {% for block in summary.remaining_blocks %}
+            <button type="button" class="capacity-chip" data-fill-hosts="{{ block.usable_hosts }}"
+              title="Fill {{ block.usable_hosts }} hosts">
+              <code>/{{ block.prefix }}</code>
+              <span>{{ block.usable_hosts }} hosts</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if summary.max_next_usable_hosts and summary.remaining_addresses > summary.max_next_block_size %}
+        <details class="capacity-guide__why">
+          <summary>Why max {{ summary.max_next_usable_hosts }} hosts when {{ summary.remaining_addresses }} IPs are
+            free?</summary>
+          <p>IPv4 subnets must be a power of 2 (4, 8, 16, 32, 64, 128, 256…) and reserve 2 addresses for network and broadcast. The largest single power-of-2 block that fits inside {{ summary.remaining_addresses }} free addresses is <b>{{ summary.max_next_block_size }}</b> (<code>/{{ summary.max_next_prefix }}</code> = {{ summary.max_next_usable_hosts }} usable hosts).</p>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if requirements %}
+      <div class="requirement-stack" data-requirement-list>
+        {% for requirement in requirements %}
+        <article class="requirement-card{% if forloop.first %} is-selected{% endif %}"
+          data-requirement-id="{{ requirement.id }}">
+          <button type="button" class="requirement-card__select" data-select-requirement="{{ requirement.id }}"
+            aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+            <span>
+              <strong>{{ requirement.name }}</strong>
+              <small>{{ requirement.required_hosts }} required hosts</small>
+            </span>
+            <span class="requirement-card__prefix">
+              {% if requirement.current_allocation %}
+              <b>/{{ requirement.current_allocation.prefix_length }}</b>
+              <small>{{ requirement.current_allocation.usable_capacity }} usable</small>
+              {% else %}
+              <b>Pending</b>
+              <small>Not allocated</small>
+              {% endif %}
+            </span>
+            <code>{% if requirement.current_allocation %}{{ requirement.current_allocation.network_address }}{% else %}—{% endif %}</code>
+          </button>
+          {% if not read_only %}
+          <div class="requirement-card__actions">
+            <button type="button" class="action-chip" data-edit-req-modal
+              data-edit-action="{% url 'network_projects:requirement_update' project.slug requirement.id %}"
+              data-edit-name="{{ requirement.name }}"
+              data-edit-hosts="{{ requirement.required_hosts }}"><svg
+                class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg><span>Edit</span></button>
+            <button type="button" class="action-chip action-chip--danger" data-delete-modal
+              data-delete-action="{% url 'network_projects:requirement_delete' project.slug requirement.id %}"
+              data-delete-title="Remove {{ requirement.name }}?"
+              data-delete-body="This subnet requirement will be removed and the remaining subnets will recalculate automatically."
+              data-delete-confirm="Remove subnet"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" />
+              </svg><span>Remove</span></button>
+          </div>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="dock-empty">
+        <h3>No subnet requirements yet</h3>
+        <p>Add a name and usable-host count. The allocation will appear here immediately after validation.</p>
+      </div>
+      {% endif %}
     </section>
 
     <section class="address-stage" aria-labelledby="address-map-heading">
-      <div class="section-heading section-heading--inverse"><div><h2 id="address-map-heading">Address space</h2><p>True allocation order across {{ project.cidr }}.</p></div><span>{{ summary.address_consumption|floatformat:1 }}% used</span></div>
-      <div class="address-map-frame">
-        <svg data-address-map viewBox="0 0 1000 150" role="img" aria-labelledby="address-map-title address-map-desc" preserveAspectRatio="none"><title id="address-map-title">Allocation map for {{ project.cidr }}</title><desc id="address-map-desc">{{ summary.subnet_count }} allocated subnets use {{ summary.allocated_addresses }} of {{ summary.total_addresses }} addresses.</desc><rect class="address-map__base" x="0" y="44" width="1000" height="62" rx="10"></rect><g data-address-segments></g></svg>
-        {% if not requirements %}<p class="address-map-frame__empty">Add a requirement to divide this address space.</p>{% endif %}
+      <div class="section-heading section-heading--inverse">
+        <div>
+          <h2 id="address-map-heading">Address space</h2>
+          <p>True allocation order across {{ project.cidr }}.</p>
+        </div>
+        <span class="stage-usage-pill">{{ summary.address_consumption|floatformat:1 }}% used</span>
       </div>
-      <div class="address-scale" aria-hidden="true"><span>{{ project.base_network }}</span><span>{{ summary.remaining_addresses }} available</span><span>Broadcast boundary</span></div>
-      <noscript><p class="noscript-note">Interactive inspection requires JavaScript. All saved allocation values remain available in the table below.</p></noscript>
+      <div class="address-map-frame">
+        <div class="map-tooltip" data-map-tooltip hidden></div>
+        <div class="hero-plan__track" data-address-map>
+          <div class="hero-seg-bar" data-address-segments role="group"
+            aria-label="{{ summary.allocated_addresses }} of {{ summary.total_addresses }} addresses allocated">
+            {% for allocation in visualization_data %}
+              <button type="button"
+                class="hero-seg hero-seg--{% cycle '0' '1' '2' '3' %}{% if forloop.first %} is-selected{% endif %}"
+                data-flex-grow="{{ allocation.allocated_addresses }}" data-requirement-id="{{ allocation.id }}"
+                aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                aria-label="{{ allocation.name }}, {{ allocation.network }}/{{ allocation.prefix }}, {{ allocation.allocated_addresses }} addresses">
+                <span>/{{ allocation.prefix }}</span>
+              </button>
+              {% endfor %}
+              {% if summary.remaining_addresses %}
+              <span class="hero-seg--free" data-flex-grow="{{ summary.remaining_addresses }}" data-address-remaining>{{ summary.remaining_addresses }} free</span>
+              {% endif %}
+          </div>
+          {% if not visualization_data %}<p class="hero-plan__empty">Add a requirement to divide this address space.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% if visualization_data %}
+      <div class="hero-subnet-grid address-subnet-grid" aria-label="Allocated subnets">
+        {% for allocation in visualization_data %}
+        <button type="button" class="hero-subnet-chip{% if forloop.first %} is-selected{% endif %}"
+          data-requirement-id="{{ allocation.id }}" data-select-requirement="{{ allocation.id }}"
+          aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}">
+          <span class="hero-subnet-chip__lead">
+            <span class="hero-subnet-chip__dot hero-subnet-chip__dot--{% cycle '0' '1' '2' '3' %}"
+              aria-hidden="true"></span>
+            <strong>{{ allocation.name }}</strong>
+          </span>
+          <code>{{ allocation.network }}/{{ allocation.prefix }}</code>
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="address-scale">
+        <span>{{ project.base_network }}</span>
+        <span>{{ summary.remaining_addresses }} available</span>
+        <span class="address-scale__hint">Click or use ← → keys</span>
+      </div>
+      <noscript>
+        <p class="noscript-note">The saved allocation remains visible above. Interactive selection requires JavaScript;
+          exact values are also available in the table below.</p>
+      </noscript>
 
       <aside class="subnet-inspector" data-subnet-inspector aria-live="polite">
-        {% if requirements %}{% with selected=requirements.0 %}<div class="subnet-inspector__heading"><div><span>Selected subnet</span><h3 data-inspector-name>{{ selected.name }}</h3></div><strong data-inspector-prefix>/{{ selected.allocation.prefix_length }}</strong></div><div class="subnet-route" aria-hidden="true"><i></i><i></i><i></i></div><dl class="inspector-grid"><div><dt>Network</dt><dd data-inspector-network>{{ selected.allocation.network_address }}</dd></div><div><dt>First usable</dt><dd data-inspector-first>{{ selected.allocation.first_usable_address }}</dd></div><div><dt>Last usable</dt><dd data-inspector-last>{{ selected.allocation.last_usable_address }}</dd></div><div><dt>Broadcast</dt><dd data-inspector-broadcast>{{ selected.allocation.broadcast_address }}</dd></div><div><dt>Host need</dt><dd data-inspector-required>{{ selected.required_hosts }}</dd></div><div><dt>Usable capacity</dt><dd data-inspector-capacity>{{ selected.allocation.usable_capacity }}</dd></div></dl><p data-inspector-explanation>{{ selected.name }} uses the smallest CIDR block that satisfies {{ selected.required_hosts }} hosts while reserving network and broadcast addresses.</p>{% endwith %}{% else %}<div class="subnet-inspector__empty"><h3>Inspector ready</h3><p>Select an allocated subnet to trace its network, usable range, and broadcast boundary.</p></div>{% endif %}
+        {% if requirements and requirements.0.current_allocation %}
+        {% with selected=requirements.0 %}
+        <div class="subnet-inspector__heading">
+          <div>
+            <span>Selected subnet</span>
+            <h3 data-inspector-name>{{ selected.name }}</h3>
+          </div>
+          <div class="subnet-inspector__controls">
+            <strong data-inspector-prefix>/{{ selected.current_allocation.prefix_length }}</strong>
+            <button type="button" class="copy-btn copy-btn--dark"
+              data-copy-value="{{ selected.current_allocation.network_address }}/{{ selected.current_allocation.prefix_length }}"
+              data-inspector-copy-cidr aria-label="Copy subnet CIDR">
+              <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <span data-copy-label>Copy CIDR</span>
+            </button>
+          </div>
+        </div>
+        <div class="subnet-route" data-subnet-route aria-hidden="true"><i></i><i></i><i></i></div>
+        <dl class="inspector-grid">
+          <div>
+            <dt>Network</dt>
+            <dd data-inspector-network>{{ selected.current_allocation.network_address }}</dd>
+          </div>
+          <div>
+            <dt>First usable</dt>
+            <dd data-inspector-first>{{ selected.current_allocation.first_usable_address }}</dd>
+          </div>
+          <div>
+            <dt>Last usable</dt>
+            <dd data-inspector-last>{{ selected.current_allocation.last_usable_address }}</dd>
+          </div>
+          <div>
+            <dt>Broadcast</dt>
+            <dd data-inspector-broadcast>{{ selected.current_allocation.broadcast_address }}</dd>
+          </div>
+          <div>
+            <dt>Host need</dt>
+            <dd data-inspector-required>{{ selected.required_hosts }}</dd>
+          </div>
+          <div>
+            <dt>Usable capacity</dt>
+            <dd data-inspector-capacity>{{ selected.current_allocation.usable_capacity }}</dd>
+          </div>
+        </dl>
+        <p data-inspector-explanation>{{ selected.name }} uses the smallest CIDR block that satisfies {{ selected.required_hosts }} hosts while reserving network and broadcast addresses.</p>
+        {% endwith %}
+        {% else %}
+        <div class="subnet-inspector__empty">
+          <h3>Inspector ready</h3>
+          <p>Select an allocated subnet to trace its network, usable range, and broadcast boundary.</p>
+        </div>
+        {% endif %}
       </aside>
     </section>
   </div>
 
-  {% if project.has_allocations %}<section class="allocation-ledger" aria-labelledby="allocation-heading"><div class="section-heading section-heading--studio"><div><h2 id="allocation-heading">Allocation ledger</h2><p>Exact persisted values for review, copying, and assessment.</p></div><span class="plan-state plan-state--active">Saved result</span></div><div class="allocation-scroll"><table class="allocation-table allocation-table--studio"><thead><tr><th>Subnet</th><th>Need / usable</th><th>Network</th><th>Mask</th><th>Usable range</th><th>Broadcast</th></tr></thead><tbody>{% for requirement in requirements %}<tr data-requirement-id="{{ requirement.id }}"><th scope="row"><button type="button" data-select-requirement="{{ requirement.id }}">{{ requirement.name }}</button></th><td>{{ requirement.required_hosts }} / {{ requirement.allocation.usable_capacity }}</td><td><code>{{ requirement.allocation.network_address }}/{{ requirement.allocation.prefix_length }}</code></td><td><code>{{ requirement.allocation.subnet_mask }}</code></td><td><code>{{ requirement.allocation.first_usable_address }}</code><span> to </span><code>{{ requirement.allocation.last_usable_address }}</code></td><td><code>{{ requirement.allocation.broadcast_address }}</code></td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+  {% if project.has_allocations %}
+  <section class="allocation-ledger" aria-labelledby="allocation-heading">
+    <div class="section-heading section-heading--studio">
+      <div>
+        <h2 id="allocation-heading">Allocation ledger</h2>
+        <p>Exact persisted values for review, copying, and assessment.</p>
+      </div>
+      <span class="plan-state plan-state--active">Saved result</span>
+    </div>
+    <div class="allocation-scroll">
+      <table class="allocation-table allocation-table--studio">
+        <thead>
+          <tr>
+            <th>Subnet</th>
+            <th>Need / usable</th>
+            <th>Network</th>
+            <th>Mask</th>
+            <th>Usable range</th>
+            <th>Broadcast</th>
+            <th class="col-actions"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for requirement in requirements %}
+          {% if requirement.current_allocation %}
+          <tr data-requirement-id="{{ requirement.id }}" {% if forloop.first %} class="is-selected" {% endif %}>
+            <th scope="row">
+              <button type="button" class="ledger-select-btn" data-select-requirement="{{ requirement.id }}">{{ requirement.name }}</button>
+            </th>
+            <td>{{ requirement.required_hosts }} / {{ requirement.current_allocation.usable_capacity }}</td>
+            <td>
+              <code>{{ requirement.current_allocation.network_address }}/{{ requirement.current_allocation.prefix_length }}</code>
+            </td>
+            <td><code>{{ requirement.current_allocation.subnet_mask }}</code></td>
+            <td><code>{{ requirement.current_allocation.first_usable_address }}</code><span> to
+              </span><code>{{ requirement.current_allocation.last_usable_address }}</code></td>
+            <td><code>{{ requirement.current_allocation.broadcast_address }}</code></td>
+            <td class="col-actions">
+              <button type="button" class="copy-btn copy-btn--compact"
+                data-copy-value="{{ requirement.current_allocation.network_address }}/{{ requirement.current_allocation.prefix_length }}"
+                aria-label="Copy {{ requirement.name }} CIDR">
+                <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <span data-copy-label>Copy</span>
+              </button>
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
   {{ visualization_data|json_script:"allocation-visualization-data" }}
+
+  {% if not read_only %}
+    <dialog class="studio-modal studio-modal--wide" data-studio-edit-project-modal aria-labelledby="edit-project-modal-title">
+      <div class="studio-modal__panel">
+        <div class="studio-modal__icon studio-modal__icon--info" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </div>
+        <h2 id="edit-project-modal-title">Edit network boundary</h2>
+        <p>Changes recalculate all saved subnets atomically inside {{ project.cidr }}.</p>
+        <form class="studio-form studio-modal__form" method="post" action="{% url 'network_projects:update' project.slug %}">
+          {% csrf_token %}
+          <div class="field">
+            <label for="modal-project-name">Project name</label>
+            <input id="modal-project-name" name="name" type="text" required maxlength="120" value="{{ project.name }}">
+          </div>
+          <div class="field">
+            <label for="modal-project-desc">Description</label>
+            <textarea id="modal-project-desc" name="description" rows="2" maxlength="1000">{{ project.description }}</textarea>
+          </div>
+          <div class="admin-form-grid">
+            <div class="field">
+              <label for="modal-project-network">Base IPv4 network</label>
+              <input id="modal-project-network" name="base_network" type="text" required value="{{ project.base_network }}">
+            </div>
+            <div class="field">
+              <label for="modal-project-prefix">Prefix length (/0–/30)</label>
+              <input id="modal-project-prefix" name="prefix_length" type="number" required min="0" max="30" value="{{ project.prefix_length }}">
+            </div>
+          </div>
+          <div class="studio-modal__actions">
+            <button type="button" class="button button--quiet" data-modal-close>Cancel</button>
+            <button type="submit" class="button button--brand">Save boundary</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="studio-modal" data-studio-edit-req-modal aria-labelledby="edit-req-modal-title">
+      <div class="studio-modal__panel">
+        <div class="studio-modal__icon studio-modal__icon--info" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </div>
+        <h2 id="edit-req-modal-title">Edit subnet requirement</h2>
+        <p>Updating this subnet automatically recalculates the complete VLSM plan.</p>
+        <form class="studio-form studio-modal__form" method="post" action="" data-edit-req-form>
+          {% csrf_token %}
+          <div class="field">
+            <label for="modal-req-name">Subnet name</label>
+            <input id="modal-req-name" name="name" type="text" required maxlength="100" data-edit-req-name>
+          </div>
+          <div class="field">
+            <label for="modal-req-hosts">Required usable hosts (max {{ summary.max_project_usable_hosts }})</label>
+            <input id="modal-req-hosts" name="required_hosts" type="number" required min="1" max="{{ summary.max_project_usable_hosts }}" inputmode="numeric" data-edit-req-hosts>
+          </div>
+          <div class="studio-modal__actions">
+            <button type="button" class="button button--quiet" data-modal-close>Cancel</button>
+            <button type="submit" class="button button--brand">Save subnet</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="studio-modal" data-studio-delete-modal aria-labelledby="delete-modal-title">
+      <div class="studio-modal__panel">
+        <div class="studio-modal__icon studio-modal__icon--danger" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        </div>
+        <h2 id="delete-modal-title" data-delete-modal-title>Confirm removal</h2>
+        <p data-delete-modal-body></p>
+        <div class="studio-modal__actions">
+          <button type="button" class="button button--quiet" data-modal-close>Cancel</button>
+          <form method="post" action="" data-delete-modal-form>
+            {% csrf_token %}
+            <button type="submit" class="button button--danger" data-delete-modal-submit>Confirm</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
+
+    {% if studio_warning %}
+      <dialog class="studio-modal" data-studio-warning-modal aria-labelledby="warning-modal-title">
+        <div class="studio-modal__panel">
+          <div class="studio-modal__icon studio-modal__icon--warn" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          </div>
+          <h2 id="warning-modal-title">{{ studio_warning.title }}</h2>
+          <ul class="studio-modal__list">
+            {% for msg in studio_warning.messages %}
+              <li>{{ msg }}</li>
+            {% endfor %}
+          </ul>
+          <div class="studio-modal__actions">
+            <button type="button" class="button button--brand" data-modal-close>Got it</button>
+          </div>
+        </div>
+      </dialog>
+    {% endif %}
+  {% endif %}
 </main>
 {% endblock %}

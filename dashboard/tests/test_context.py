@@ -41,6 +41,12 @@ class DashboardContextTests(TestCase):
         self.assertContains(response, "Open plan")
         self.assertContains(response, "Campus")
         self.assertNotContains(response, "Private")
+        plans_payload = response.context["dashboard_plans_data"]
+        self.assertEqual(len(plans_payload), 1)
+        self.assertEqual(plans_payload[0]["cidr"], "10.0.0.0/24")
+        self.assertEqual(plans_payload[0]["allocations"][0]["network"], "10.0.0.0")
+        self.assertContains(response, 'data-copy-value="10.0.0.0/26"')
+        self.assertContains(response, f'?subnet={plans_payload[0]["allocations"][0]["id"]}')
 
     def test_empty_dashboard_uses_explanatory_workflow_instead_of_fake_plan(self):
         self.client.force_login(self.user)

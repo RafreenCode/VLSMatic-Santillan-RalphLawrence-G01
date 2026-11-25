@@ -7,7 +7,7 @@
 {% block layout %}
 <main id="main-content" class="auth-shell">
   <section class="auth-context" aria-labelledby="product-title">
-    <a class="wordmark wordmark--auth" href="{% url 'accounts:home' %}" aria-label="VLSMatic home"><img class="wordmark__image" src="{% static 'img/vlsmatic-wordmark.png' %}" alt="VLSMatic"></a>
+    <a class="brand-logo brand-logo--auth" href="{% url 'accounts:home' %}" aria-label="VLSMatic home">{% include "accounts/partials/brand_logo.html" %}</a>
     <div class="auth-context__copy">
       <h1 id="product-title">Plan address space with boundaries you can explain.</h1>
       <p>Create an account to save IPv4 projects, calculate subnet allocations, and return to your plans at any time.</p>
@@ -19,13 +19,12 @@
       <div class="address-map__block address-map__block--c"><span>/27</span></div>
       <div class="address-map__block address-map__block--d"><span>/27</span></div>
     </div>
-    <p class="phase-note"><span>Current phase</span> Account registration and secure access</p>
+    <p class="phase-note"><span>Regular User</span> Saved IPv4 projects and persistent allocations</p>
   </section>
 
   <section class="auth-form-panel" aria-labelledby="register-title">
     <div class="auth-form-wrap">
       <header class="form-heading">
-        <p class="form-heading__step">Account setup</p>
         <h2 id="register-title">Create your account</h2>
         <p>Use an email address you can access. Every public registration receives Regular User access.</p>
       </header>
@@ -48,7 +47,7 @@
         <button class="button button--primary" type="submit">Create secure account</button>
       </form>
 
-      <p class="form-switch">Already registered? <a href="#">Sign in</a></p>
+      <p class="form-switch">Already registered? <a href="{% url 'accounts:login' %}">Sign in</a></p>
     </div>
   </section>
 </main>

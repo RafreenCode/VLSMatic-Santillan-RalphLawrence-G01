@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} · VLSMatic Admin{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+    <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">{{ group.name }}</span>
+  </nav>
+
+  <header class="admin-console-banner admin-console-banner--compact">
+    <div>
+      <div class="admin-user-hero__pills">
+        <span class="status-pill{% if group.is_joinable %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if group.is_joinable %}Joining open{% else %}Joining paused{% endif %}</span>
+        <span class="status-pill status-pill--admin">{{ memberships|length }} {% if memberships|length == 1 %}member{% else %}members{% endif %}</span>
+        <span class="status-pill status-pill--user">{{ group_projects|length }} {% if group_projects|length == 1 %}project{% else %}projects{% endif %}</span>
+      </div>
+      <h1>{{ group.name }}</h1>
+      <p>{{ group.description|default:"Share the join code below so regular users can connect to this group from their dashboard." }}</p>
+    </div>
+
+    <div class="group-hero-code">
+      <span class="group-hero-code__label">Shareable join code</span>
+      <button type="button" class="join-code-pill join-code-pill--hero" data-copy-value="{{ group.join_code }}" aria-label="Copy join code {{ group.join_code }}">
+        <code>{{ group.join_code }}</code>
+        <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <span data-copy-label>Copy code</span>
+      </button>
+      <div class="group-hero-controls">
+        <form method="post" action="{% url 'dashboard:admin_group_regenerate_code' group.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="button button--quiet">Regenerate code</button>
+        </form>
+        <form method="post" action="{% url 'dashboard:admin_group_toggle_joinable' group.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="button button--quiet">{% if group.is_joinable %}Pause joining{% else %}Reopen joining{% endif %}</button>
+        </form>
+        <a class="button button--quiet" href="{% url 'dashboard:admin_group_update' group.slug %}">Edit</a>
+        <form method="post" action="{% url 'dashboard:admin_group_delete' group.slug %}" data-confirm="Delete group {{ group.name }}? Members and their projects will not be deleted.">
+          {% csrf_token %}
+          <button type="submit" class="button button--danger-ghost">Delete</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <section class="dashboard-work" aria-labelledby="group-members-heading">
+    <div class="section-heading section-heading--studio">
+      <div>
+        <h2 id="group-members-heading">Group members ({{ memberships|length }})</h2>
+        <p>Select any connected user to regulate their account or drill into their saved network projects.</p>
+      </div>
+    </div>
+
+    <div class="group-toolbar">
+      <form class="admin-filter-bar group-toolbar__search" method="get" action="{% url 'dashboard:admin_group_detail' group.slug %}">
+        <label class="admin-filter-bar__field">
+          <span>Filter members</span>
+          <input type="text" name="q" value="{{ member_query }}" placeholder="Search member username, name, or email">
+        </label>
+        <div class="admin-filter-bar__actions">
+          <button class="button button--brand" type="submit">Filter</button>
+          {% if member_query %}
+            <a class="button button--quiet" href="{% url 'dashboard:admin_group_detail' group.slug %}">Reset</a>
+          {% endif %}
+        </div>
+      </form>
+
+      <form class="admin-filter-bar group-toolbar__enroll" method="post" action="{% url 'dashboard:admin_group_add_member' group.slug %}">
+        {% csrf_token %}
+        <label class="admin-filter-bar__field">
+          <span>Enroll existing user</span>
+          {{ add_member_form.user }}
+        </label>
+        <div class="admin-filter-bar__actions">
+          <button class="button button--quiet" type="submit">Add member</button>
+        </div>
+      </form>
+    </div>
+
+    {% if memberships %}
+      <div class="admin-user-stack">
+        {% for membership in memberships %}
+          {% with account=membership.user %}
+            <article class="admin-user-row">
+              <div class="admin-user-row__identity">
+                <div class="admin-user-avatar" aria-hidden="true">
+                  {% if account.profile_photo_url %}
+                    <img src="{{ account.profile_photo_url }}" alt="">
+                  {% else %}
+                    <span>{{ account.username|slice:":2"|upper }}</span>
+                  {% endif %}
+                </div>
+                <div class="admin-user-row__copy">
+                  <a class="admin-user-row__name" href="{% url 'dashboard:admin_group_member_detail' group.slug account.username %}">
+                    {{ account.get_full_name|default:account.username }}
+                    <small>@{{ account.username }}</small>
+                  </a>
+                  <span class="admin-user-row__email">{{ account.email }} · Joined {{ membership.joined_at|date:"M j, Y" }}</span>
+                </div>
+              </div>
+
+              <div class="admin-user-row__badges">
+                <span class="status-pill{% if account.is_active %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if account.is_active %}Active{% else %}Inactive{% endif %}</span>
+              </div>
+
+              <div class="admin-user-row__stats">
+                <span><b>{{ membership.project_count }}</b> {% if membership.project_count == 1 %}project{% else %}projects{% endif %}</span>
+                <small>{{ membership.allocated_addresses }} allocated IPs</small>
+              </div>
+
+              <div class="admin-user-row__actions">
+                <a class="action-chip" href="{% url 'dashboard:admin_group_member_detail' group.slug account.username %}">
+                  <span>Manage user</span>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                </a>
+                <form method="post" action="{% url 'dashboard:admin_group_remove_member' group.slug account.username %}">
+                  {% csrf_token %}
+                  <button type="submit" class="button button--danger-ghost button--sm">Remove</button>
+                </form>
+              </div>
+            </article>
+          {% endwith %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="studio-empty studio-empty--compact">
+        <div>
+          <h3>{% if member_query %}No matching members{% else %}No members connected yet{% endif %}</h3>
+          <p>{% if member_query %}Try clearing your search filter.{% else %}Share join code <code>{{ group.join_code }}</code> or enroll an existing user above.{% endif %}</p>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-work" aria-labelledby="group-projects-heading">
+    <div class="section-heading section-heading--studio">
+      <div>
+        <h2 id="group-projects-heading">Member network projects ({{ group_projects|length }})</h2>
+        <p>All IPv4 projects owned by members of {{ group.name }}. Inspect any plan in read-only oversight mode.</p>
+      </div>
+    </div>
+
+    {% if group_projects %}
+      <div class="project-stack">
+        {% for project in group_projects %}
+          <article class="project-card-row">
+            <div class="project-card-row__identity">
+              <a class="project-card-row__title" href="{% url 'dashboard:admin_group_member_project_detail' group.slug project.owner.username project.slug %}">{{ project.name }}</a>
+              <div class="project-card-row__badges">
+                <button type="button" class="cidr-chip-copy" data-copy-value="{{ project.cidr }}" aria-label="Copy {{ project.name }} CIDR">
+                  <code>{{ project.cidr }}</code>
+                  <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                </button>
+                <a class="owner-link" href="{% url 'dashboard:admin_group_member_detail' group.slug project.owner.username %}">Owned by <b>@{{ project.owner.username }}</b></a>
+              </div>
+            </div>
+            <div class="project-snapshot__measure">
+              <progress class="meter-bar" value="{{ project.address_consumption|floatformat:2 }}" max="100" aria-hidden="true"></progress>
+              <small>{{ project.address_consumption|floatformat:1 }}% address space used</small>
+            </div>
+            <div class="project-snapshot__meta">
+              <span class="subnet-count"><b>{{ project.requirement_count }}</b> subnets</span>
+              <span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span>
+            </div>
+            <div class="project-card-row__actions">
+              <a class="action-chip" href="{% url 'dashboard:admin_group_member_project_detail' group.slug project.owner.username project.slug %}">
+                <span>Inspect</span>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+              </a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="studio-empty studio-empty--compact">
+        <div>
+          <h3>No projects from members yet</h3>
+          <p>Projects created by connected members of {{ group.name }} will automatically appear here.</p>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
+</main>
+{% endblock %}

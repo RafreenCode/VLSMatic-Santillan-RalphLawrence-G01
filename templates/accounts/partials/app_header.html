@@ -1,12 +1,10 @@
 {% load static %}
 <header class="app-header">
-  <a class="wordmark wordmark--dark" href="{% url 'dashboard:home' %}" aria-label="VLSMatic dashboard">
-    <img class="wordmark__image" src="{% static 'img/vlsmatic-wordmark.png' %}" alt="VLSMatic">
-  </a>
+  <a class="brand-logo" href="{% url 'dashboard:home' %}" aria-label="VLSMatic dashboard">{% include "accounts/partials/brand_logo.html" %}</a>
   <nav class="app-nav" aria-label="Primary navigation">
-    <a href="{% url 'dashboard:home' %}">Dashboard</a>
-    <a href="{% url 'network_projects:list' %}">Projects</a>
-    <a class="nav-profile" href="{% url 'accounts:profile' %}">
+    <a href="{% url 'dashboard:home' %}" {% if request.resolver_match.namespace == 'dashboard' %}aria-current="page"{% endif %}>{% if user.is_vlsmatic_admin %}Admin Console{% else %}Dashboard{% endif %}</a>
+    <a href="{% url 'network_projects:list' %}" {% if request.resolver_match.namespace == 'network_projects' %}aria-current="page"{% endif %}>Projects</a>
+    <a class="nav-profile" href="{% url 'accounts:profile' %}" {% if request.resolver_match.namespace == 'accounts' and request.resolver_match.url_name == 'profile' %}aria-current="page"{% endif %}>
       {% if user.profile_photo_url %}<img class="nav-profile__avatar" src="{{ user.profile_photo_url }}" alt="">{% endif %}
       <span>Profile</span>
     </a>

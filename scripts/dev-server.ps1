@@ -46,9 +46,10 @@ function Get-ConfiguredMode {
     return (($line -split '=', 2)[1]).Trim().Trim('"').Trim("'").ToLowerInvariant()
 }
 
-function Get-PortListener {
-    Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
-        Select-Object -First 1
+function Get-PortListeners {
+    $connections = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
+    if (-not $connections) { return @() }
+    return @($connections | Group-Object -Property OwningProcess | ForEach-Object { $_.Group[0] })
 }
 
 function Get-ProcessCommandLine([int]$ProcessId) {
@@ -118,17 +119,19 @@ finally {
     }
 }
 
-$listener = Get-PortListener
-if ($listener) {
-    $commandLine = Get-ProcessCommandLine -ProcessId $listener.OwningProcess
+$listeners = @(Get-PortListeners)
+if ($listeners.Count -gt 0) {
     Write-Host ""
-    Write-Host "Port $Port is in use" -ForegroundColor Yellow
-    Write-Host "PID:          $($listener.OwningProcess)"
-    Write-Host "Command:      $commandLine"
-    if ($commandLine -notmatch '(?i)manage\.py\s+runserver') {
-        Write-Warning "The listener is not a verified Django runserver. This script will not stop it."
-        if ($Restart) {
-            throw "Cannot restart safely while another application owns port $Port."
+    Write-Host "Port $Port is in use ($($listeners.Count) listener(s))" -ForegroundColor Yellow
+    foreach ($listener in $listeners) {
+        $commandLine = Get-ProcessCommandLine -ProcessId $listener.OwningProcess
+        Write-Host "PID:          $($listener.OwningProcess)"
+        Write-Host "Command:      $commandLine"
+        if ($commandLine -notmatch '(?i)manage\.py\s+runserver') {
+            Write-Warning "PID $($listener.OwningProcess) is not a verified Django runserver. This script will not stop it."
+            if ($Restart) {
+                throw "Cannot restart safely while another application owns port $Port."
+            }
         }
     }
 } else {
@@ -143,15 +146,22 @@ if (-not $Restart) {
     exit 0
 }
 
-if ($listener) {
+foreach ($listener in $listeners) {
     $commandLine = Get-ProcessCommandLine -ProcessId $listener.OwningProcess
     if ($commandLine -match '(?i)manage\.py\s+runserver') {
         Write-Host "Stopping verified Django server PID $($listener.OwningProcess)..." -ForegroundColor Yellow
-        Stop-Process -Id $listener.OwningProcess -Force
-        Start-Sleep -Milliseconds 500
-        if (Get-PortListener) {
-            throw "Port $Port is still occupied after stopping PID $($listener.OwningProcess)."
-        }
+        Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+}
+if ($listeners.Count -gt 0) {
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        Start-Sleep -Milliseconds 300
+        if (@(Get-PortListeners).Count -eq 0) { break }
+    }
+    $remaining = @(Get-PortListeners)
+    if ($remaining.Count -gt 0) {
+        $pids = ($remaining | ForEach-Object { $_.OwningProcess }) -join ', '
+        throw "Port $Port is still occupied after stopping verified server(s). Remaining PID(s): $pids."
     }
 }
 

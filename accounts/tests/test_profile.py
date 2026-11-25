@@ -142,3 +142,8 @@ class ProfileTests(TestCase):
         self.assertFalse(self.user.is_superuser)
         self.assertEqual(self.user.username, "student")
         self.assertEqual(self.user.profile_photo_path, "")
+
+    def test_profile_displays_role_name(self):
+        self.client.force_login(self.user)
+        response = self.client.get(self.url)
+        self.assertContains(response, "Regular User")

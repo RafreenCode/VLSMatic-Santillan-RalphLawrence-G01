@@ -6,6 +6,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
 
+from accounts.models import generate_public_slug
+
 
 class NetworkProject(models.Model):
     owner = models.ForeignKey(
@@ -14,6 +16,7 @@ class NetworkProject(models.Model):
         related_name="network_projects",
     )
     name = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=150, unique=True, db_index=True, editable=False)
     description = models.TextField(blank=True, max_length=1000)
     base_network = models.GenericIPAddressField(protocol="IPv4")
     prefix_length = models.PositiveSmallIntegerField()
@@ -41,7 +44,17 @@ class NetworkProject(models.Model):
                     {"base_network": "Enter the network address for this prefix; host addresses are not accepted."}
                 ) from error
 
+    @classmethod
+    def generate_unique_slug(cls, name: str) -> str:
+        for _ in range(25):
+            candidate = generate_public_slug(name, fallback="project")
+            if not cls.objects.filter(slug=candidate).exists():
+                return candidate
+        raise RuntimeError("Could not generate a unique project slug.")
+
     def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.generate_unique_slug(self.name)
         self.full_clean()
         return super().save(*args, **kwargs)
 

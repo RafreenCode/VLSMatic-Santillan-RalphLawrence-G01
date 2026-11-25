@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block title %}{{ heading }} · VLSMatic{% endblock %}
-{% block layout %}
-{% include "accounts/partials/app_header.html" %}
-<main id="main-content" class="studio-shell">
-  <header class="editor-heading"><a class="back-link" href="{% url 'network_projects:detail' project.id %}">Back to {{ project.name }}</a><h1>{{ heading }}</h1><p>Enter the usable host capacity this subnet must support inside <code>{{ project.cidr }}</code>. The complete plan is recalculated atomically when you save.</p></header>
-  <div class="boundary-layout"><section class="studio-form-region"><form method="post" class="form">{% csrf_token %}{% if form.non_field_errors %}<div class="form-alert" role="alert">{{ form.non_field_errors }}</div>{% endif %}{% include "accounts/partials/field.html" with field=form.name %}{% include "accounts/partials/field.html" with field=form.required_hosts %}<div class="form-actions"><button class="button button--brand" type="submit">Save requirement</button><a href="{% url 'network_projects:detail' project.id %}">Cancel</a></div></form></section><aside class="boundary-preview"><span>Allocation contract</span><strong>{{ project.cidr }}</strong><dl><div><dt>Host rule</dt><dd>Usable capacity</dd></div><div><dt>Recalculation</dt><dd>Atomic</dd></div></dl><p>If this requirement cannot fit, neither the input nor the current valid plan will be changed.</p></aside></div>
-</main>
-{% endblock %}

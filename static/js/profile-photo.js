@@ -72,8 +72,6 @@ if (input && preview && filename && trigger && dialog && canvas && stage && zoom
     candidate.src = objectUrl;
   };
 
-  trigger.addEventListener("click", () => input.click());
-
   input.addEventListener("change", () => {
     const [file] = input.files;
     if (!file) return;

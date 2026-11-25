@@ -7,19 +7,22 @@
   <meta name="description" content="VLSMatic — an explainable and visual IPv4 subnet planning system.">
   <meta name="theme-color" content="#001030">
   <title>{% block title %}VLSMatic{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <link rel="stylesheet" href="{% static 'css/planning-studio.css' %}">
+  <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/favicon.png' %}{{ static_version_query }}">
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}{{ static_version_query }}">
+  <link rel="apple-touch-icon" href="{% static 'img/favicon.png' %}{{ static_version_query }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}{{ static_version_query }}">
+  <link rel="stylesheet" href="{% static 'css/planning-studio.css' %}{{ static_version_query }}">
   {% block styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main-content">Skip to main content</a>
   {% if messages %}
     <div class="message-stack" aria-live="polite">
-      {% for message in messages %}<p class="message message--{{ message.tags }}">{{ message }}</p>{% endfor %}
+      {% for message in messages %}<div class="message message--{{ message.tags }}" role="{% if 'error' in message.tags or 'warning' in message.tags %}alert{% else %}status{% endif %}"><p class="message__text">{{ message }}</p></div>{% endfor %}
     </div>
   {% endif %}
   {% block layout %}{% endblock %}
-  <script src="{% static 'js/planning-studio.js' %}" defer></script>
+  <script src="{% static 'js/planning-studio.js' %}{{ static_version_query }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

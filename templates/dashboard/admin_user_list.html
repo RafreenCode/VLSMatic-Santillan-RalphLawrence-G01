@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Users · VLSMatic Admin{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <header class="admin-console-banner admin-console-banner--compact">
+    <div>
+      <span class="console-status-pill"><i aria-hidden="true"></i>Account Regulation</span>
+      <h1>User directory</h1>
+      <p>Filter accounts by group, role, or status. Select any user to manage permissions and inspect their network projects.</p>
+    </div>
+    <div class="admin-console-actions">
+      <a class="button button--brand" href="{% url 'dashboard:admin_user_create' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New user</span></a>
+    </div>
+  </header>
+
+  <form class="admin-filter-bar" method="get" action="{% url 'dashboard:admin_user_list' %}">
+    <label class="admin-filter-bar__field">
+      <span>Search</span>
+      {{ user_filters.q }}
+    </label>
+    <label class="admin-filter-bar__field">
+      <span>Group</span>
+      {{ user_filters.group }}
+    </label>
+    <label class="admin-filter-bar__field">
+      <span>Role</span>
+      {{ user_filters.role }}
+    </label>
+    <label class="admin-filter-bar__field">
+      <span>Status</span>
+      {{ user_filters.status }}
+    </label>
+    <div class="admin-filter-bar__actions">
+      <button class="button button--brand" type="submit">Apply</button>
+      {% if user_filters_active %}
+        <a class="button button--quiet" href="{% url 'dashboard:admin_user_list' %}">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if users %}
+    <div class="admin-user-stack">
+      {% for account in users %}
+        <article class="admin-user-row">
+          <div class="admin-user-row__identity">
+            <div class="admin-user-avatar" aria-hidden="true">
+              {% if account.profile_photo_url %}
+                <img src="{{ account.profile_photo_url }}" alt="">
+              {% else %}
+                <span>{{ account.username|slice:":2"|upper }}</span>
+              {% endif %}
+            </div>
+            <div class="admin-user-row__copy">
+              <a class="admin-user-row__name" href="{% url 'dashboard:admin_user_detail' account.username %}">
+                {{ account.get_full_name|default:account.username }}
+                <small>@{{ account.username }}</small>
+              </a>
+              <span class="admin-user-row__email">{{ account.email }}</span>
+            </div>
+          </div>
+
+          <div class="admin-user-row__badges">
+            <span class="status-pill{% if account.is_vlsmatic_admin %} status-pill--admin{% else %} status-pill--user{% endif %}">{{ account.role_record.name }}</span>
+            <span class="status-pill{% if account.is_active %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if account.is_active %}Active{% else %}Inactive{% endif %}</span>
+            {% for grp in account.workspace_groups.all %}
+              <a class="group-tag" href="{% url 'dashboard:admin_group_detail' grp.slug %}">{{ grp.name }}</a>
+            {% endfor %}
+          </div>
+
+          <div class="admin-user-row__stats">
+            <span><b>{{ account.project_count }}</b> {% if account.project_count == 1 %}project{% else %}projects{% endif %}</span>
+            <small>{{ account.allocated_addresses }} allocated IPs</small>
+          </div>
+
+          <div class="admin-user-row__actions">
+            <a class="action-chip" href="{% url 'dashboard:admin_user_detail' account.username %}">
+              <span>Manage user</span>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="studio-empty studio-empty--compact">
+      <div>
+        <h2>No matching accounts</h2>
+        <p>Try clearing your search or group filters to view all platform users.</p>
+      </div>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

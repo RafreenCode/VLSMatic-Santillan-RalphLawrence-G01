@@ -190,7 +190,7 @@ Navigation sits on a near-opaque white bar. Navy labels gain a cyan underline on
 
 ### Brand Mark
 
-The official horizontal wordmark asset is used consistently on authentication and application surfaces. The standalone icon is contextual artwork only and never substitutes for the wordmark.
+The official brand lockup (`static/img/vlsmatic-logo.png`) places the standalone icon and the VLSMatic wordmark side by side as one unit. It is rendered through the shared `brand_logo.html` partial on every authentication, application, and administration surface so proportions, spacing, and colors never drift. The lockup is never recolored, stretched, or split; on dark fields it sits on a white plate. The icon alone is not used as a brand mark.
 
 ### Address-Space Map
 

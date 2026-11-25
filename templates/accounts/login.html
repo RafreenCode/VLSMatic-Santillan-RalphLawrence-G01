@@ -7,7 +7,7 @@
 {% block layout %}
 <main id="main-content" class="auth-shell">
   <section class="auth-context" aria-labelledby="product-title">
-    <a class="wordmark wordmark--auth" href="{% url 'accounts:home' %}" aria-label="VLSMatic home"><img class="wordmark__image" src="{% static 'img/vlsmatic-wordmark.png' %}" alt="VLSMatic"></a>
+    <a class="brand-logo brand-logo--auth" href="{% url 'accounts:home' %}" aria-label="VLSMatic home">{% include "accounts/partials/brand_logo.html" %}</a>
     <div class="auth-context__copy">
       <h1 id="product-title">Return to your planning workspace.</h1>
       <p>Sign in to continue saved network plans, inspect allocations, and manage your account.</p>
@@ -25,7 +25,6 @@
   <section class="auth-form-panel" aria-labelledby="login-title">
     <div class="auth-form-wrap auth-form-wrap--compact">
       <header class="form-heading">
-        <p class="form-heading__step">Secure access</p>
         <h2 id="login-title">Sign in</h2>
         <p>Use the username and password created during registration.</p>
       </header>
