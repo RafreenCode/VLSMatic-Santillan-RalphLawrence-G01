@@ -1,12 +1,13 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Sum
 from django.db import transaction
+from django.db.models import Count, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from accounts.models import User
+from accounts.models import User, WorkspaceGroup
 
 from .forms import NetworkProjectForm, ProjectFilterForm, SubnetRequirementForm
 from .models import NetworkProject, SubnetRequirement
@@ -24,30 +25,28 @@ def _decorate_projects(projects):
 
 
 def _owned_project(request, project_id):
-    if request.user.role != User.Role.USER:
-        raise PermissionDenied
-    return get_object_or_404(NetworkProject, pk=project_id, owner=request.user)
+    project = get_object_or_404(NetworkProject, pk=project_id)
+    if project.owner_id != request.user.pk:
+        if request.user.role == User.Role.ADMIN:
+            raise PermissionDenied
+        raise Http404
+    return project
 
 
 def _owned_requirement(request, requirement_id):
-    if request.user.role != User.Role.USER:
-        raise PermissionDenied
-    return get_object_or_404(
+    requirement = get_object_or_404(
         SubnetRequirement.objects.select_related("project"),
         pk=requirement_id,
-        project__owner=request.user,
     )
+    if requirement.project.owner_id != request.user.pk:
+        if request.user.role == User.Role.ADMIN:
+            raise PermissionDenied
+        raise Http404
+    return requirement
 
 
 @login_required
 def project_list(request):
-    if request.user.role == User.Role.ADMIN:
-        projects = NetworkProject.objects.select_related("owner").annotate(
-            requirement_count=Count("requirements", distinct=True),
-            allocation_count=Count("requirements__allocation", distinct=True),
-            allocated_addresses=Sum("requirements__allocation__allocated_addresses"),
-        )
-        return render(request, "network_projects/admin_project_list.html", {"projects": _decorate_projects(projects)})
     projects = request.user.network_projects.annotate(
         requirement_count=Count("requirements", distinct=True),
         allocation_count=Count("requirements__allocation", distinct=True),
@@ -61,13 +60,15 @@ def project_list(request):
             projects = projects.filter(base_network=filters.cleaned_data["network"])
         if filters.cleaned_data["created_date"]:
             projects = projects.filter(created_at__date=filters.cleaned_data["created_date"])
-    return render(request, "network_projects/project_list.html", {"projects": _decorate_projects(projects), "filters": filters, "filters_active": bool(request.GET)})
+    return render(
+        request,
+        "network_projects/project_list.html",
+        {"projects": _decorate_projects(projects), "filters": filters, "filters_active": bool(request.GET)},
+    )
 
 
 @login_required
 def project_create(request):
-    if request.user.role != User.Role.USER:
-        return redirect("network_projects:list")
     form = NetworkProjectForm(request.POST or None, owner=request.user)
     if request.method == "POST" and form.is_valid():
         project = form.save(commit=False)
@@ -80,13 +81,21 @@ def project_create(request):
 
 @login_required
 def project_detail(request, project_id):
+    source_group = None
     if request.user.role == User.Role.ADMIN:
         project = get_object_or_404(NetworkProject.objects.select_related("owner"), pk=project_id)
-        read_only = True
+        read_only = project.owner_id != request.user.pk
+        if read_only:
+            group_id = request.GET.get("group", "").strip()
+            if group_id.isdigit():
+                source_group = WorkspaceGroup.objects.filter(
+                    pk=int(group_id), memberships__user=project.owner
+                ).first()
     else:
         project = _owned_project(request, project_id)
         read_only = False
     requirements = list(project.requirements.select_related("allocation").all())
+    studio_warning = request.session.pop("studio_warning", None)
     return render(
         request,
         "network_projects/project_detail.html",
@@ -96,16 +105,33 @@ def project_detail(request, project_id):
             "summary": project_summary(project, requirements),
             "visualization_data": allocation_visualization(project, requirements),
             "read_only": read_only,
+            "source_group": source_group,
+            "studio_warning": studio_warning,
         },
     )
+
+
+def _flash_studio_warning(request, title, form, extra=None):
+    error_messages = []
+    for field_errors in form.errors.values():
+        error_messages.extend(str(err) for err in field_errors)
+    payload = {
+        "title": title,
+        "messages": error_messages or ["Please check your input and try again."],
+    }
+    if extra:
+        payload.update(extra)
+    request.session["studio_warning"] = payload
 
 
 @login_required
 def project_update(request, project_id):
     project = _owned_project(request, project_id)
+    if request.method != "POST":
+        return redirect("network_projects:detail", project_id=project.pk)
     original_network = (project.base_network, project.prefix_length)
-    form = NetworkProjectForm(request.POST or None, instance=project, owner=request.user)
-    if request.method == "POST" and form.is_valid():
+    form = NetworkProjectForm(request.POST, instance=project, owner=request.user)
+    if form.is_valid():
         network_changed = original_network != (
             form.cleaned_data["base_network"],
             form.cleaned_data["prefix_length"],
@@ -120,7 +146,8 @@ def project_update(request, project_id):
         else:
             messages.success(request, "Project updated and its allocation recalculated.")
             return redirect("network_projects:detail", project_id=project.pk)
-    return render(request, "network_projects/project_form.html", {"form": form, "project": project, "heading": "Edit project"})
+    _flash_studio_warning(request, "Could not update project boundary", form)
+    return redirect("network_projects:detail", project_id=project.pk)
 
 
 @login_required
@@ -130,14 +157,16 @@ def project_delete(request, project_id):
         project.delete()
         messages.success(request, "Project deleted.")
         return redirect("network_projects:list")
-    return render(request, "network_projects/project_confirm_delete.html", {"project": project})
+    return redirect("network_projects:detail", project_id=project.pk)
 
 
 @login_required
 def requirement_create(request, project_id):
     project = _owned_project(request, project_id)
-    form = SubnetRequirementForm(request.POST or None, project=project)
-    if request.method == "POST" and form.is_valid():
+    if request.method != "POST":
+        return redirect("network_projects:detail", project_id=project.pk)
+    form = SubnetRequirementForm(request.POST, project=project)
+    if form.is_valid():
         try:
             with transaction.atomic():
                 requirement = form.save(commit=False)
@@ -150,14 +179,25 @@ def requirement_create(request, project_id):
         else:
             messages.success(request, "Subnet requirement added and the plan recalculated.")
             return redirect("network_projects:detail", project_id=project.pk)
-    return render(request, "network_projects/requirement_form.html", {"form": form, "project": project, "heading": "Add a subnet requirement"})
+    _flash_studio_warning(
+        request,
+        "Could not add subnet",
+        form,
+        extra={
+            "name": request.POST.get("name", ""),
+            "required_hosts": request.POST.get("required_hosts", ""),
+        },
+    )
+    return redirect("network_projects:detail", project_id=project.pk)
 
 
 @login_required
 def requirement_update(request, requirement_id):
     requirement = _owned_requirement(request, requirement_id)
-    form = SubnetRequirementForm(request.POST or None, instance=requirement, project=requirement.project)
-    if request.method == "POST" and form.is_valid():
+    if request.method != "POST":
+        return redirect("network_projects:detail", project_id=requirement.project_id)
+    form = SubnetRequirementForm(request.POST, instance=requirement, project=requirement.project)
+    if form.is_valid():
         try:
             with transaction.atomic():
                 form.save()
@@ -167,7 +207,8 @@ def requirement_update(request, requirement_id):
         else:
             messages.success(request, "Subnet requirement updated and the plan recalculated.")
             return redirect("network_projects:detail", project_id=requirement.project_id)
-    return render(request, "network_projects/requirement_form.html", {"form": form, "project": requirement.project, "requirement": requirement, "heading": "Edit subnet requirement"})
+    _flash_studio_warning(request, f"Could not update {requirement.name}", form)
+    return redirect("network_projects:detail", project_id=requirement.project_id)
 
 
 @login_required
@@ -179,8 +220,7 @@ def requirement_delete(request, requirement_id):
             requirement.delete()
             allocate_project(project, allow_empty=True)
         messages.success(request, "Subnet requirement deleted and the plan recalculated.")
-        return redirect("network_projects:detail", project_id=project.pk)
-    return render(request, "network_projects/requirement_confirm_delete.html", {"requirement": requirement, "project": project})
+    return redirect("network_projects:detail", project_id=project.pk)
 
 
 @login_required

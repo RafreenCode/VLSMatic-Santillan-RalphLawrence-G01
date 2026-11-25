@@ -14,16 +14,19 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from django.templatetags.static import static as static_url
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('dashboard/', include('dashboard.urls')),
-    path('projects/', include('network_projects.urls')),
-    path('', include('accounts.urls')),
+    path("favicon.ico", RedirectView.as_view(url=static_url("img/favicon.ico"), permanent=False)),
+    path("admin/login/", RedirectView.as_view(pattern_name="dashboard:admin", permanent=False)),
+    path("admin/", RedirectView.as_view(pattern_name="dashboard:admin", permanent=False)),
+    path("dashboard/", include("dashboard.urls")),
+    path("projects/", include("network_projects.urls")),
+    path("", include("accounts.urls")),
 ]
 
 if settings.DEBUG and settings.PROFILE_PHOTO_STORAGE == "local":

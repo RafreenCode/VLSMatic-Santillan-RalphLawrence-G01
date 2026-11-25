@@ -1,0 +1,13 @@
+<nav class="admin-tabs" aria-label="Administration sections">
+  <a class="admin-tab{% if admin_active_tab == 'overview' %} is-active{% endif %}" href="{% url 'dashboard:admin' %}"{% if admin_active_tab == 'overview' %} aria-current="page"{% endif %}>
+    <span>Overview</span>
+  </a>
+  <a class="admin-tab{% if admin_active_tab == 'groups' %} is-active{% endif %}" href="{% url 'dashboard:admin_group_list' %}"{% if admin_active_tab == 'groups' %} aria-current="page"{% endif %}>
+    <span>Groups</span>
+    <span class="admin-tab__count">{{ admin_group_count }}</span>
+  </a>
+  <a class="admin-tab{% if admin_active_tab == 'users' %} is-active{% endif %}" href="{% url 'dashboard:admin_user_list' %}"{% if admin_active_tab == 'users' %} aria-current="page"{% endif %}>
+    <span>Users</span>
+    <span class="admin-tab__count">{{ admin_user_count }}</span>
+  </a>
+</nav>

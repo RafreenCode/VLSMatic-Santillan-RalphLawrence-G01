@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Create account · VLSMatic Admin{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+    <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'dashboard:admin_user_list' %}">Users</a>
+    <span aria-hidden="true">/</span>
+    <span aria-current="page">New user</span>
+  </nav>
+
+  <section class="admin-panel admin-panel--narrow" aria-labelledby="create-user-heading">
+    <div class="admin-panel__head">
+      <div>
+        <h1 id="create-user-heading">Create platform account</h1>
+        <p>Provision a new Regular User or Administrator directly inside VLSMatic.</p>
+      </div>
+    </div>
+
+    <form class="studio-form" method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="form-errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="admin-form-grid">
+        <div class="field">
+          <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          {{ form.username }}
+          {{ form.username.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+          {{ form.email }}
+          {{ form.email.errors }}
+        </div>
+      </div>
+      <div class="admin-form-grid">
+        <div class="field">
+          <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+          {{ form.first_name }}
+          {{ form.first_name.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+          {{ form.last_name }}
+          {{ form.last_name.errors }}
+        </div>
+      </div>
+      <div class="admin-form-grid">
+        <div class="field">
+          <label for="{{ form.contact_number.id_for_label }}">{{ form.contact_number.label }}</label>
+          {{ form.contact_number }}
+          {{ form.contact_number.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.role_record.id_for_label }}">{{ form.role_record.label }}</label>
+          {{ form.role_record }}
+          {{ form.role_record.errors }}
+        </div>
+      </div>
+      <div class="admin-form-grid">
+        <div class="field">
+          <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+          {{ form.password1 }}
+          {{ form.password1.errors }}
+        </div>
+        <div class="field">
+          <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+          {{ form.password2 }}
+          {{ form.password2.errors }}
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="button button--brand" type="submit">Create account</button>
+        <a class="button button--quiet" href="{% url 'dashboard:admin' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

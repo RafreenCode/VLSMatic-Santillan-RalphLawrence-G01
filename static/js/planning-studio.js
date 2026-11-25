@@ -31,11 +31,24 @@
   const setupFormFeedback = () => {
     document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(form => {
       form.addEventListener('submit', event => {
+        if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+          event.preventDefault();
+          return;
+        }
         const submitter = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
         if (!submitter || submitter.dataset.submitting === 'true') return;
         submitter.dataset.submitting = 'true';
         submitter.setAttribute('aria-busy', 'true');
       });
+    });
+  };
+
+  const applyDeclarativeFlex = () => {
+    document.querySelectorAll('[data-flex-grow]').forEach(node => {
+      const value = Number(node.dataset.flexGrow);
+      if (Number.isFinite(value) && value > 0) {
+        node.style.flexGrow = String(value);
+      }
     });
   };
 
@@ -606,6 +619,138 @@
     }
   };
 
+  const setupCapacityGuide = () => {
+    const guide = document.querySelector('[data-capacity-guide]');
+    const hostsInput = document.querySelector('[data-hosts-input]');
+    const feedback = guide?.querySelector('[data-capacity-feedback]');
+    if (!guide || !hostsInput || !feedback) return;
+
+    const remaining = Number(guide.dataset.remainingAddresses || 0);
+    const maxSingleHosts = Number(guide.dataset.maxSingleHosts || 0);
+    const maxSinglePrefix = guide.dataset.maxSinglePrefix || '';
+    const maxProjectHosts = Number(guide.dataset.maxProjectHosts || 4294967294);
+    const projectCidr = guide.dataset.projectCidr || 'this network';
+    const maxDigits = Math.max(4, String(maxProjectHosts).length + 1);
+    const defaultHtml = feedback.innerHTML;
+
+    const evaluate = () => {
+      if (hostsInput.value.length > maxDigits) {
+        hostsInput.value = hostsInput.value.slice(0, maxDigits);
+      }
+      const raw = hostsInput.value.trim();
+      if (!raw) {
+        guide.classList.remove('capacity-guide--fit', 'capacity-guide--warn');
+        feedback.innerHTML = defaultHtml;
+        return;
+      }
+      const hosts = Number(raw);
+      if (!Number.isSafeInteger(hosts) || hosts < 1) {
+        guide.classList.remove('capacity-guide--fit');
+        guide.classList.add('capacity-guide--warn');
+        feedback.textContent = 'Enter a whole number of at least 1 host.';
+        return;
+      }
+      if (hosts > maxProjectHosts) {
+        guide.classList.remove('capacity-guide--fit');
+        guide.classList.add('capacity-guide--warn');
+        feedback.innerHTML = maxSingleHosts > 0
+          ? `Exceeds <code>${projectCidr}</code> (max ${numberFormat.format(maxProjectHosts)} usable hosts total). Max for 1 new subnet is <b>${numberFormat.format(maxSingleHosts)} hosts</b> (<code>/${maxSinglePrefix}</code>).`
+          : `Exceeds <code>${projectCidr}</code> (max ${numberFormat.format(maxProjectHosts)} usable hosts total) and no space remains.`;
+        return;
+      }
+      const bits = Math.ceil(Math.log2(hosts + 2));
+      const blockSize = 2 ** bits;
+      const prefix = 32 - bits;
+      const usable = blockSize - 2;
+
+      if (prefix < 0 || blockSize > remaining) {
+        guide.classList.remove('capacity-guide--fit');
+        guide.classList.add('capacity-guide--warn');
+        feedback.innerHTML = maxSingleHosts > 0
+          ? `Needs <code>/${prefix}</code> (${numberFormat.format(blockSize)} IPs) — <b>won’t fit</b> in ${numberFormat.format(remaining)} free IPs. Max for 1 subnet is <b>${numberFormat.format(maxSingleHosts)} hosts</b> (<code>/${maxSinglePrefix}</code>).`
+          : `Needs <code>/${prefix}</code> (${numberFormat.format(blockSize)} IPs) — <b>no space left</b>. Edit the boundary to expand.`;
+      } else {
+        const after = remaining - blockSize;
+        guide.classList.remove('capacity-guide--warn');
+        guide.classList.add('capacity-guide--fit');
+        feedback.innerHTML = `Uses <code>/${prefix}</code> (${numberFormat.format(blockSize)} IPs · ${numberFormat.format(usable)} usable) — <b>Fits!</b> ${numberFormat.format(after)} IPs will remain.`;
+      }
+    };
+
+    hostsInput.addEventListener('input', evaluate);
+    guide.querySelectorAll('[data-fill-hosts]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        hostsInput.value = btn.dataset.fillHosts || '';
+        hostsInput.focus();
+        evaluate();
+      });
+    });
+  };
+
+  const setupStudioModals = () => {
+    const wireDialogDismiss = dialog => {
+      if (!dialog) return;
+      dialog.addEventListener('click', event => {
+        if (event.target === dialog) dialog.close();
+      });
+      dialog.querySelectorAll('[data-modal-close]').forEach(btn => {
+        btn.addEventListener('click', () => dialog.close());
+      });
+    };
+
+    const editProjectDialog = document.querySelector('[data-studio-edit-project-modal]');
+    if (editProjectDialog && typeof editProjectDialog.showModal === 'function') {
+      document.querySelectorAll('[data-edit-project-modal]').forEach(trigger => {
+        trigger.addEventListener('click', () => editProjectDialog.showModal());
+      });
+      wireDialogDismiss(editProjectDialog);
+    }
+
+    const editReqDialog = document.querySelector('[data-studio-edit-req-modal]');
+    if (editReqDialog && typeof editReqDialog.showModal === 'function') {
+      const formEl = editReqDialog.querySelector('[data-edit-req-form]');
+      const nameInput = editReqDialog.querySelector('[data-edit-req-name]');
+      const hostsInput = editReqDialog.querySelector('[data-edit-req-hosts]');
+
+      document.querySelectorAll('[data-edit-req-modal]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          if (formEl) formEl.action = trigger.dataset.editAction || '';
+          if (nameInput) nameInput.value = trigger.dataset.editName || '';
+          if (hostsInput) hostsInput.value = trigger.dataset.editHosts || '';
+          editReqDialog.showModal();
+          nameInput?.focus();
+        });
+      });
+      wireDialogDismiss(editReqDialog);
+    }
+
+    const deleteDialog = document.querySelector('[data-studio-delete-modal]');
+    if (deleteDialog && typeof deleteDialog.showModal === 'function') {
+      const titleEl = deleteDialog.querySelector('[data-delete-modal-title]');
+      const bodyEl = deleteDialog.querySelector('[data-delete-modal-body]');
+      const formEl = deleteDialog.querySelector('[data-delete-modal-form]');
+      const submitEl = deleteDialog.querySelector('[data-delete-modal-submit]');
+
+      document.querySelectorAll('[data-delete-modal]').forEach(trigger => {
+        trigger.addEventListener('click', () => {
+          if (titleEl) titleEl.textContent = trigger.dataset.deleteTitle || 'Confirm deletion';
+          if (bodyEl) bodyEl.textContent = trigger.dataset.deleteBody || '';
+          if (formEl) formEl.action = trigger.dataset.deleteAction || '';
+          if (submitEl) submitEl.textContent = trigger.dataset.deleteConfirm || 'Delete';
+          deleteDialog.showModal();
+        });
+      });
+      wireDialogDismiss(deleteDialog);
+    }
+
+    const warningDialog = document.querySelector('[data-studio-warning-modal]');
+    if (warningDialog && typeof warningDialog.showModal === 'function') {
+      warningDialog.showModal();
+      wireDialogDismiss(warningDialog);
+    }
+  };
+
+  applyDeclarativeFlex();
   setupMessages();
   setupFormFeedback();
   setupCopyButtons();
@@ -613,4 +758,6 @@
   setupDashboardWorkflow();
   setupDashboardStudio();
   setupPlanningStudio();
+  setupCapacityGuide();
+  setupStudioModals();
 })();

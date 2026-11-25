@@ -7,6 +7,9 @@
   <meta name="description" content="VLSMatic — an explainable and visual IPv4 subnet planning system.">
   <meta name="theme-color" content="#001030">
   <title>{% block title %}VLSMatic{% endblock %}</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/favicon.png' %}{{ static_version_query }}">
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}{{ static_version_query }}">
+  <link rel="apple-touch-icon" href="{% static 'img/favicon.png' %}{{ static_version_query }}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}{{ static_version_query }}">
   <link rel="stylesheet" href="{% static 'css/planning-studio.css' %}{{ static_version_query }}">
   {% block styles %}{% endblock %}

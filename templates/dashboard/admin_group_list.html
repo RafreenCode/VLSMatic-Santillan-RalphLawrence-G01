@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Groups · VLSMatic Admin{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <header class="admin-console-banner admin-console-banner--compact">
+    <div>
+      <span class="console-status-pill"><i aria-hidden="true"></i>Group → Users → Projects</span>
+      <h1>Workspace groups</h1>
+      <p>Create managed groups with shareable join codes. Users connect with the code, and you can inspect every member and their IPv4 projects here.</p>
+    </div>
+    <div class="admin-console-actions">
+      <a class="button button--brand" href="{% url 'dashboard:admin_group_create' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New group</span></a>
+    </div>
+  </header>
+
+  <form class="admin-filter-bar" method="get" action="{% url 'dashboard:admin_group_list' %}">
+    <label class="admin-filter-bar__field">
+      <span>Search groups</span>
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Group name, description, or join code">
+    </label>
+    <div class="admin-filter-bar__actions">
+      <button class="button button--brand" type="submit">Search</button>
+      {% if search_query %}
+        <a class="button button--quiet" href="{% url 'dashboard:admin_group_list' %}">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if groups %}
+    <div class="group-card-grid">
+      {% for group in groups %}
+        <article class="group-card">
+          <div class="group-card__head">
+            <div>
+              <a class="group-card__title" href="{% url 'dashboard:admin_group_detail' group.id %}">{{ group.name }}</a>
+              <p class="group-card__desc">{{ group.description|default:"Share the join code below so users can connect their workspace to this group." }}</p>
+            </div>
+            <span class="status-pill{% if group.is_joinable %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if group.is_joinable %}Open{% else %}Paused{% endif %}</span>
+          </div>
+
+          <div class="group-card__code-row">
+            <span class="group-card__code-label">Join code</span>
+            <button type="button" class="join-code-pill" data-copy-value="{{ group.join_code }}" aria-label="Copy join code for {{ group.name }}">
+              <code>{{ group.join_code }}</code>
+              <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+              <span data-copy-label>Copy</span>
+            </button>
+          </div>
+
+          <div class="group-card__foot">
+            <div class="group-card__stats">
+              <span><b>{{ group.member_count }}</b> {% if group.member_count == 1 %}member{% else %}members{% endif %}</span>
+              <span><b>{{ group.project_count }}</b> {% if group.project_count == 1 %}project{% else %}projects{% endif %}</span>
+            </div>
+            <a class="action-chip" href="{% url 'dashboard:admin_group_detail' group.id %}">
+              <span>Open group</span>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="studio-empty studio-empty--compact">
+      <div>
+        <h2>{% if search_query %}No matching groups{% else %}No groups created yet{% endif %}</h2>
+        <p>{% if search_query %}Try a different search term or reset the filter.{% else %}Create your first group to generate a shareable join code for users.{% endif %}</p>
+        {% if not search_query %}
+          <a class="button button--brand" href="{% url 'dashboard:admin_group_create' %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Create first group</span></a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
+</main>
+{% endblock %}

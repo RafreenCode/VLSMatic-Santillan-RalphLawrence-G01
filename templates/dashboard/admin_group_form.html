@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit {{ group.name }}{% else %}New group{% endif %} · VLSMatic Admin{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+    <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
+    <span aria-hidden="true">/</span>
+    {% if editing %}
+      <a href="{% url 'dashboard:admin_group_detail' group.id %}">{{ group.name }}</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Edit</span>
+    {% else %}
+      <span aria-current="page">New group</span>
+    {% endif %}
+  </nav>
+
+  <section class="admin-panel admin-panel--narrow" aria-labelledby="group-form-heading">
+    <div class="admin-panel__head">
+      <div>
+        <h1 id="group-form-heading">{% if editing %}Edit group{% else %}Create workspace group{% endif %}</h1>
+        <p>{% if editing %}Update this group’s name, description, or joining status.{% else %}A unique 8-character shareable join code will be generated automatically.{% endif %}</p>
+      </div>
+    </div>
+
+    <form class="studio-form" method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="form-errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <div class="field">
+        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {{ form.name.errors }}
+      </div>
+      <div class="field">
+        <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+      <label class="admin-checkbox-field" for="{{ form.is_joinable.id_for_label }}">
+        {{ form.is_joinable }}
+        <span>Allow users to join this group with its join code</span>
+      </label>
+      <div class="form-actions">
+        <button class="button button--brand" type="submit">{% if editing %}Save group changes{% else %}Create group{% endif %}</button>
+        <a class="button button--quiet" href="{% if editing %}{% url 'dashboard:admin_group_detail' group.id %}{% else %}{% url 'dashboard:admin_group_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

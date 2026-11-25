@@ -48,8 +48,14 @@ class ProjectViewTests(TestCase):
         self.assertFalse(SubnetRequirement.objects.filter(pk=requirement.pk).exists())
 
     def test_admin_has_read_only_project_visibility(self):
+        admin_project = NetworkProject.objects.create(
+            owner=self.admin, name="Admin Personal Plan", base_network="10.99.0.0", prefix_length=24
+        )
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(reverse("network_projects:list")), "My plan")
+        list_resp = self.client.get(reverse("network_projects:list"))
+        self.assertContains(list_resp, "Admin Personal Plan")
+        self.assertNotContains(list_resp, "My plan")
+        self.assertEqual(self.client.get(reverse("network_projects:update", args=[admin_project.pk])).status_code, 302)
         self.assertEqual(self.client.get(reverse("network_projects:detail", args=[self.project.pk])).status_code, 200)
         self.assertEqual(self.client.get(reverse("network_projects:update", args=[self.project.pk])).status_code, 403)
 
@@ -86,12 +92,17 @@ class ProjectViewTests(TestCase):
         allocate_project(self.project)
         old_run = self.project.calculation_run.pk
         self.client.force_login(self.user)
-        response = self.client.post(reverse("network_projects:requirement_update", args=[second.pk]), {"name": "Second", "required_hosts": 200})
+        response = self.client.post(
+            reverse("network_projects:requirement_update", args=[second.pk]),
+            {"name": "Second", "required_hosts": 200},
+            follow=True,
+        )
         second.refresh_from_db()
         self.project.refresh_from_db()
-        self.assertEqual(response.status_code, 200)
+        self.assertRedirects(response, reverse("network_projects:detail", args=[self.project.pk]))
         self.assertEqual(second.required_hosts, 100)
         self.assertEqual(self.project.calculation_run.pk, old_run)
+        self.assertContains(response, "data-studio-warning-modal")
         self.assertContains(response, "exceed this network")
 
     def test_detail_exposes_only_persisted_allocation_geometry(self):
@@ -128,8 +139,20 @@ class ProjectViewTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("network_projects:detail", args=[self.project.pk]))
         self.assertContains(response, 'class="hero-seg hero-seg--0 is-selected"')
-        self.assertContains(response, 'style="flex-grow: 32"')
+        self.assertContains(response, 'data-flex-grow="32"')
         self.assertContains(response, "Studio, 192.168.1.0/27, 32 addresses")
+
+    def test_studio_quick_add_error_returns_in_page_warning_modal(self):
+        SubnetRequirement.objects.create(project=self.project, name="Office 6", required_hosts=30)
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("network_projects:requirement_create", args=[self.project.pk]),
+            {"name": "Office 6", "required_hosts": 30, "from_studio": "1"},
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("network_projects:detail", args=[self.project.pk]))
+        self.assertContains(response, "data-studio-warning-modal")
+        self.assertContains(response, "This project already has a subnet with that name.")
 
     def test_detail_renders_modern_controls_brand_lockup_and_copy_actions(self):
         SubnetRequirement.objects.create(project=self.project, name="Studio", required_hosts=30)

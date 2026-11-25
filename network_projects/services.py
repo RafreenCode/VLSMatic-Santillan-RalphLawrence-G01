@@ -68,6 +68,23 @@ def allocate_project(project, allow_empty=False):
     return allocations
 
 
+def _remaining_capacity_breakdown(remaining_addresses):
+    blocks = []
+    left = max(0, int(remaining_addresses))
+    while left >= 4:
+        size = 1 << (left.bit_length() - 1)
+        prefix = 32 - (size.bit_length() - 1)
+        blocks.append(
+            {
+                "prefix": prefix,
+                "block_size": size,
+                "usable_hosts": size - 2,
+            }
+        )
+        left -= size
+    return blocks
+
+
 def project_summary(project, requirements):
     total_addresses = 2 ** (32 - project.prefix_length)
     total_required = sum(item.required_hosts for item in requirements)
@@ -75,14 +92,23 @@ def project_summary(project, requirements):
     allocations = [item for item in allocations if item is not None]
     allocated_addresses = sum(item.allocated_addresses for item in allocations)
     usable_capacity = sum(item.usable_capacity for item in allocations)
+    remaining_addresses = total_addresses - allocated_addresses
+    remaining_blocks = _remaining_capacity_breakdown(remaining_addresses)
+    largest_block = remaining_blocks[0] if remaining_blocks else None
     return {
         "subnet_count": len(requirements),
         "total_required_hosts": total_required,
         "allocated_addresses": allocated_addresses,
-        "remaining_addresses": total_addresses - allocated_addresses,
+        "remaining_addresses": remaining_addresses,
         "host_efficiency": (total_required / usable_capacity * 100) if usable_capacity else 0,
         "address_consumption": (allocated_addresses / total_addresses * 100) if total_addresses else 0,
         "total_addresses": total_addresses,
+        "max_project_usable_hosts": max(0, total_addresses - 2),
+        "max_next_block_size": largest_block["block_size"] if largest_block else 0,
+        "max_next_usable_hosts": largest_block["usable_hosts"] if largest_block else 0,
+        "max_next_prefix": largest_block["prefix"] if largest_block else None,
+        "remaining_blocks": remaining_blocks,
+        "max_split_usable_hosts": sum(block["usable_hosts"] for block in remaining_blocks),
     }
 
 

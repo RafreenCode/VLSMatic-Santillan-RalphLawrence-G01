@@ -264,6 +264,47 @@
       </div>
     {% endif %}
   </section>
+
+  <section class="dashboard-work user-groups-section" aria-labelledby="user-groups-heading">
+    <div class="section-heading section-heading--studio">
+      <div>
+        <h2 id="user-groups-heading">Connected groups</h2>
+        <p>Enter a join code shared by an administrator to connect your workspace to a managed group.</p>
+      </div>
+    </div>
+
+    <div class="user-groups-panel">
+      <form class="join-code-form" method="post" action="{% url 'dashboard:user_join_group' %}">
+        {% csrf_token %}
+        <label class="join-code-form__field" for="{{ join_group_form.join_code.id_for_label }}">
+          <span>Join with code</span>
+          {{ join_group_form.join_code }}
+        </label>
+        <button class="button button--brand" type="submit">Join group</button>
+      </form>
+
+      {% if connected_memberships %}
+        <div class="user-group-grid">
+          {% for membership in connected_memberships %}
+            <article class="user-group-card">
+              <div>
+                <strong>{{ membership.group.name }}</strong>
+                <p>{{ membership.group.description|default:"Connected workspace group" }}</p>
+                <small>Joined {{ membership.joined_at|date:"M j, Y" }}</small>
+              </div>
+              <form method="post" action="{% url 'dashboard:user_leave_group' membership.group.id %}">
+                {% csrf_token %}
+                <button type="submit" class="button button--danger-ghost button--sm">Leave</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="user-groups-empty">You are not connected to any group yet. Ask your administrator for an 8-character join code.</p>
+      {% endif %}
+    </div>
+  </section>
+
   <span class="sr-only" data-copy-announcer aria-live="polite"></span>
   {{ resume_visualization|json_script:"dashboard-plan-preview-data" }}
   {{ dashboard_plans_data|json_script:"dashboard-plans-data" }}

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Manage @{{ target_user.username }} · VLSMatic{% endblock %}
+{% block body_class %}app-surface{% endblock %}
+{% block layout %}
+{% include "accounts/partials/app_header.html" %}
+<main id="main-content" class="studio-shell dashboard-studio">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+    <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+    <span aria-hidden="true">/</span>
+    {% if source_group %}
+      <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
+      <span aria-hidden="true">/</span>
+      <a href="{% url 'dashboard:admin_group_detail' source_group.id %}">{{ source_group.name }}</a>
+      <span aria-hidden="true">/</span>
+    {% else %}
+      <a href="{% url 'dashboard:admin_user_list' %}">Users</a>
+      <span aria-hidden="true">/</span>
+    {% endif %}
+    <span aria-current="page">@{{ target_user.username }}</span>
+  </nav>
+
+  <header class="admin-console-banner admin-console-banner--compact">
+    <div class="admin-user-hero">
+      <div class="admin-user-avatar admin-user-avatar--lg" aria-hidden="true">
+        {% if target_user.profile_photo_url %}
+          <img src="{{ target_user.profile_photo_url }}" alt="">
+        {% else %}
+          <span>{{ target_user.username|slice:":2"|upper }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <div class="admin-user-hero__pills">
+          <span class="status-pill{% if target_user.is_vlsmatic_admin %} status-pill--admin{% else %} status-pill--user{% endif %}">{{ target_user.role_record.name }}</span>
+          <span class="status-pill{% if target_user.is_active %} status-pill--active{% else %} status-pill--inactive{% endif %}">{% if target_user.is_active %}Active{% else %}Inactive{% endif %}</span>
+          {% if is_self %}<span class="status-pill status-pill--self">Current session</span>{% endif %}
+        </div>
+        <h1>{{ target_user.get_full_name|default:target_user.username }}</h1>
+        <p>@{{ target_user.username }} · {{ target_user.email }} · Joined {{ target_user.date_joined|date:"M j, Y" }}</p>
+        {% if user_groups %}
+          <div class="admin-user-groups-strip">
+            {% for grp in user_groups %}
+              <a class="group-tag group-tag--inverse" href="{% url 'dashboard:admin_group_detail' grp.id %}">{{ grp.name }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <div class="admin-detail-grid">
+    <section class="admin-panel" aria-labelledby="account-regulation-heading">
+      <div class="admin-panel__head">
+        <div>
+          <h2 id="account-regulation-heading">Account regulation</h2>
+          <p>Control account status, role permissions, and contact details.</p>
+        </div>
+      </div>
+
+      <div class="admin-quick-actions">
+        <form method="post" action="{% url 'dashboard:admin_user_toggle_active' target_user.id %}">
+          {% csrf_token %}
+          <button type="submit" class="button {% if target_user.is_active %}button--danger-ghost{% else %}button--brand{% endif %}"{% if not can_deactivate and target_user.is_active %} disabled{% endif %}>
+            <span>{% if target_user.is_active %}Deactivate account{% else %}Activate account{% endif %}</span>
+          </button>
+        </form>
+        <form method="post" action="{% url 'dashboard:admin_user_change_role' target_user.id %}">
+          {% csrf_token %}
+          <button type="submit" class="button button--quiet"{% if not can_change_role %} disabled{% endif %}>
+            <span>{% if target_user.is_vlsmatic_admin %}Demote to Regular User{% else %}Promote to Administrator{% endif %}</span>
+          </button>
+        </form>
+      </div>
+      {% if is_self %}
+        <p class="admin-safeguard-note">Self-protection active: you cannot deactivate or demote your own administrator session.</p>
+      {% elif not can_deactivate %}
+        <p class="admin-safeguard-note">Safeguard active: at least one active administrator account must remain enabled.</p>
+      {% endif %}
+
+      <form class="studio-form admin-edit-form" method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="form-errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="admin-form-grid">
+          <div class="field">
+            <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+            {{ form.first_name }}
+            {{ form.first_name.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+            {{ form.last_name }}
+            {{ form.last_name.errors }}
+          </div>
+        </div>
+        <div class="field">
+          <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+          {{ form.email }}
+          {{ form.email.errors }}
+        </div>
+        <div class="admin-form-grid">
+          <div class="field">
+            <label for="{{ form.contact_number.id_for_label }}">{{ form.contact_number.label }}</label>
+            {{ form.contact_number }}
+            {{ form.contact_number.errors }}
+          </div>
+          <div class="field">
+            <label for="{{ form.role_record.id_for_label }}">{{ form.role_record.label }}</label>
+            {{ form.role_record }}
+            {{ form.role_record.errors }}
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="button button--brand" type="submit">Save account changes</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-panel" aria-labelledby="user-projects-heading">
+      <div class="admin-panel__head">
+        <div>
+          <h2 id="user-projects-heading">User’s network projects ({{ user_projects|length }})</h2>
+          <p>{{ total_allocated }} total IPv4 addresses allocated across this account’s workspaces.</p>
+        </div>
+      </div>
+
+      {% if user_projects %}
+        <div class="project-stack">
+          {% for project in user_projects %}
+            <article class="project-card-row project-card-row--compact">
+              <div class="project-card-row__identity">
+                <a class="project-card-row__title" href="{% url 'network_projects:detail' project.id %}{% if source_group %}?group={{ source_group.id }}{% endif %}">{{ project.name }}</a>
+                <div class="project-card-row__badges">
+                  <button type="button" class="cidr-chip-copy" data-copy-value="{{ project.cidr }}" aria-label="Copy {{ project.name }} CIDR">
+                    <code>{{ project.cidr }}</code>
+                    <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  </button>
+                  <span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span>
+                </div>
+              </div>
+              <div class="project-snapshot__measure">
+                <progress class="meter-bar" value="{{ project.address_consumption|floatformat:2 }}" max="100" aria-hidden="true"></progress>
+                <small>{{ project.address_consumption|floatformat:1 }}% used · {{ project.requirement_count }} subnets</small>
+              </div>
+              <div class="project-card-row__actions">
+                <a class="action-chip" href="{% url 'network_projects:detail' project.id %}{% if source_group %}?group={{ source_group.id }}{% endif %}">
+                  <span>Inspect</span>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="studio-empty studio-empty--compact">
+          <div>
+            <h3>No network projects</h3>
+            <p>@{{ target_user.username }} has not created any IPv4 planning projects yet.</p>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
+</main>
+{% endblock %}

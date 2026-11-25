@@ -4,42 +4,117 @@
 {% block layout %}
 {% include "accounts/partials/app_header.html" %}
 <main id="main-content" class="studio-shell project-index">
+  {% include "dashboard/partials/admin_tabs.html" %}
+
+  <nav class="admin-breadcrumb" aria-label="Admin hierarchy">
+    <a href="{% url 'dashboard:admin' %}">Admin Console</a>
+    <span aria-hidden="true">/</span>
+    {% if selected_group %}
+    <a href="{% url 'dashboard:admin_group_list' %}">Groups</a>
+    <span aria-hidden="true">/</span>
+    <a href="{% url 'dashboard:admin_group_detail' selected_group.id %}">{{ selected_group.name }}</a>
+    <span aria-hidden="true">/</span>
+    {% endif %}
+    {% if selected_owner %}
+    <a href="{% url 'dashboard:admin_user_detail' selected_owner.id %}">@{{ selected_owner.username }}</a>
+    <span aria-hidden="true">/</span>
+    {% endif %}
+    <span aria-current="page">Projects</span>
+  </nav>
+
   <header class="index-heading">
     <div>
-      <h1>Project oversight</h1>
-      <p>Read-only access to saved network plans and their current allocation health.</p>
+      <h1>{% if selected_group %}{{ selected_group.name }} projects{% elif selected_owner %}@{{ selected_owner.username
+        }}’s projects{% else %}Project oversight{% endif %}</h1>
+      <p>Filter saved IPv4 plans by group, user, or network, or inspect any project in read-only oversight mode.</p>
     </div>
     <span class="plan-state plan-state--active">Administrator view</span>
   </header>
-  {% if projects %}
-    <div class="project-stack project-stack--index">
-      {% for project in projects %}
-        <a class="project-snapshot project-snapshot--admin" href="{% url 'network_projects:detail' project.id %}">
-          <span class="project-snapshot__identity">
-            <strong>{{ project.name }}</strong>
-            <small>Owned by {{ project.owner.username }}</small>
-            <code>{{ project.cidr }}</code>
-          </span>
-          <span class="project-snapshot__measure">
-            <progress class="meter-bar" value="{{ project.address_consumption|floatformat:2 }}" max="100" aria-hidden="true"></progress>
-            <small>{{ project.address_consumption|floatformat:1 }}% used</small>
-          </span>
-          <span class="project-snapshot__meta">
-            <span class="subnet-count"><b>{{ project.requirement_count }}</b> subnets</span>
-            <span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status }}</span>
-          </span>
-          <time datetime="{{ project.updated_at|date:'c' }}">{{ project.updated_at|date:"M j, Y" }}</time>
-          <span class="project-snapshot__chevron" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
-        </a>
-      {% endfor %}
+
+  <form class="admin-filter-bar" method="get" action="{% url 'network_projects:list' %}">
+    <label class="admin-filter-bar__field">
+      <span>Search projects</span>
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Project name, network, or username">
+    </label>
+    <label class="admin-filter-bar__field">
+      <span>Filter by group</span>
+      <select name="group">
+        <option value="">All groups</option>
+        {% for grp in groups %}
+        <option value="{{ grp.id }}" {% if selected_group and selected_group.id==grp.id %} selected{% endif %}>{{
+          grp.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="admin-filter-bar__field">
+      <span>Filter by user</span>
+      <select name="owner">
+        <option value="">All users</option>
+        {% for owner in owners %}
+        <option value="{{ owner.id }}" {% if selected_owner and selected_owner.id==owner.id %} selected{% endif %}>@{{
+          owner.username }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="admin-filter-bar__actions">
+      <button class="button button--brand" type="submit">Filter</button>
+      {% if filters_active %}
+      <a class="button button--quiet" href="{% url 'network_projects:list' %}">Reset</a>
+      {% endif %}
     </div>
-  {% else %}
-    <section class="studio-empty studio-empty--compact">
-      <div>
-        <h2>No saved projects</h2>
-        <p>Plans will appear after regular users create them.</p>
+  </form>
+
+  {% if projects %}
+  <div class="project-stack project-stack--index">
+    {% for project in projects %}
+    <article class="project-card-row">
+      <div class="project-card-row__identity">
+        <a class="project-card-row__title" href="{% url 'network_projects:detail' project.id %}">{{ project.name }}</a>
+        <div class="project-card-row__badges">
+          <button type="button" class="cidr-chip-copy" data-copy-value="{{ project.cidr }}"
+            aria-label="Copy {{ project.name }} CIDR">
+            <code>{{ project.cidr }}</code>
+            <svg class="icon icon--copy" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <svg class="icon icon--check" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </button>
+          <a class="owner-link" href="{% url 'dashboard:admin_user_detail' project.owner.id %}">Owned by <b>@{{
+              project.owner.username }}</b></a>
+        </div>
       </div>
-    </section>
+      <div class="project-snapshot__measure">
+        <progress class="meter-bar" value="{{ project.address_consumption|floatformat:2 }}" max="100"
+          aria-hidden="true"></progress>
+        <small>{{ project.address_consumption|floatformat:1 }}% used</small>
+      </div>
+      <div class="project-snapshot__meta">
+        <span class="subnet-count"><b>{{ project.requirement_count }}</b> subnets</span>
+        <span class="plan-state{% if project.allocation_count %} plan-state--active{% endif %}">{{ project.plan_status
+          }}</span>
+      </div>
+      <div class="project-card-row__actions">
+        <a class="project-snapshot__chevron" href="{% url 'network_projects:detail' project.id %}"
+          aria-label="Open {{ project.name }} in read-only mode"><svg class="icon" viewBox="0 0 24 24"
+            aria-hidden="true">
+            <path d="M5 12h14m-6-6 6 6-6 6" />
+          </svg></a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <section class="studio-empty studio-empty--compact">
+    <div>
+      <h2>No saved projects</h2>
+      <p>{% if filters_active %}No projects matched the selected user or search filter.{% else %}Plans will appear after
+        regular users create them.{% endif %}</p>
+    </div>
+  </section>
   {% endif %}
+  <span class="sr-only" data-copy-announcer aria-live="polite"></span>
 </main>
 {% endblock %}
