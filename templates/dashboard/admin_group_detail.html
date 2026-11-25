@@ -121,7 +121,7 @@
                   <span>Manage user</span>
                   <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
                 </a>
-                <form method="post" action="{% url 'dashboard:admin_group_remove_member' group.slug account.username %}">
+                <form method="post" action="{% url 'dashboard:admin_group_remove_member' group.slug account.username %}" data-confirm="Remove this member from the group? Their projects will be kept.">
                   {% csrf_token %}
                   <button type="submit" class="button button--danger-ghost button--sm">Remove</button>
                 </form>

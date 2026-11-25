@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
 from accounts.models import Role, User, WorkspaceGroup, normalize_join_code
+from accounts.forms import UniqueEmailMixin
 
 
 class AdminUserFilterForm(forms.Form):
@@ -43,7 +44,7 @@ class AdminUserFilterForm(forms.Form):
         self.fields["group"].choices = group_choices
 
 
-class AdminUserUpdateForm(forms.ModelForm):
+class AdminUserUpdateForm(UniqueEmailMixin, forms.ModelForm):
     role_record = forms.ModelChoiceField(
         queryset=Role.objects.all(),
         label="Role",
@@ -61,7 +62,7 @@ class AdminUserUpdateForm(forms.ModelForm):
         }
 
 
-class AdminUserCreateForm(UserCreationForm):
+class AdminUserCreateForm(UniqueEmailMixin, UserCreationForm):
     email = forms.EmailField(
         required=True,
         widget=forms.EmailInput(attrs={"placeholder": "name@example.com"}),

@@ -8,7 +8,18 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from .models import User
 
 
-class RegistrationForm(UserCreationForm):
+class UniqueEmailMixin:
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        matches = User.objects.filter(email__iexact=email)
+        if self.instance.pk:
+            matches = matches.exclude(pk=self.instance.pk)
+        if matches.exists():
+            raise forms.ValidationError("An account with this email address already exists.")
+        return email
+
+
+class RegistrationForm(UniqueEmailMixin, UserCreationForm):
     email = forms.EmailField(
         label="Email address",
         widget=forms.EmailInput(attrs={"autocomplete": "email"}),
@@ -23,12 +34,6 @@ class RegistrationForm(UserCreationForm):
             "last_name": forms.TextInput(attrs={"autocomplete": "family-name"}),
         }
 
-    def clean_email(self):
-        email = self.cleaned_data["email"].strip().lower()
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("An account with this email address already exists.")
-        return email
-
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data["email"]
@@ -38,7 +43,7 @@ class RegistrationForm(UserCreationForm):
         return user
 
 
-class ProfileForm(forms.ModelForm):
+class ProfileForm(UniqueEmailMixin, forms.ModelForm):
     profile_photo = forms.ImageField(
         required=False,
         label="Profile photo",
@@ -95,8 +100,3 @@ class ProfileForm(forms.ModelForm):
         optimized.image_format = "WEBP"
         return optimized
 
-    def clean_email(self):
-        email = self.cleaned_data["email"].strip().lower()
-        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("An account with this email address already exists.")
-        return email

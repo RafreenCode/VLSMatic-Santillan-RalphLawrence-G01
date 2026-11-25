@@ -1,6 +1,6 @@
 # VLSMatic Database Reference
 
-VLSMatic uses Django migrations as the source of truth for its PostgreSQL/Supabase schema. The application implements the six logical entities specified by the SDD: roles, users, projects, subnet requirements, calculation runs, and subnet allocations.
+VLSMatic uses Django migrations as the source of truth for its PostgreSQL/Supabase schema. The planning core implements the six logical entities specified by the SDD: roles, users, projects, subnet requirements, calculation runs, and subnet allocations. The retained workspace-group baseline adds groups and memberships.
 
 ## Schema rules
 
@@ -32,7 +32,7 @@ The migration seeds Regular User and Administrator records. A database check con
 
 ## `accounts_user`
 
-This custom Django user table stores the normal `AbstractUser` authentication fields plus unique `email`, required `role_code`, optional `contact_number`, and optional `profile_photo_path`. `role_code` is a protected foreign key to `accounts_role`. Passwords contain Django hashes, never plaintext.
+This custom Django user table stores the normal `AbstractUser` authentication fields plus case-insensitively unique `email`, required `role_code`, optional `contact_number`, and optional `profile_photo_path`. `role_code` is a protected foreign key to `accounts_role`. Passwords contain Django hashes, never plaintext.
 
 Profile images are stored locally or in the configured Supabase Storage bucket; PostgreSQL stores only their object path. Django's group and permission junction tables continue to support staff authorization.
 
@@ -101,3 +101,13 @@ python manage.py test
 ```
 
 Tests must use an isolated database and must never target production data.
+
+## PD3 integrity and retained workspace schema
+
+- User emails are trimmed and lowercased on save. `unique_user_email_ci` enforces case-insensitive uniqueness even for writes that bypass forms. Migration `accounts.0007` first checks normalized duplicates and stops without modifying accounts if a conflict exists; resolve the affected accounts with their owners before retrying. It never merges or deletes accounts automatically.
+- Projects have globally unique, non-editable public `slug` values. Slugs are addresses, not an authorization mechanism: every read and mutation still checks the authenticated role and owner. Existing rows are backfilled by `network_projects.0004`.
+- `accounts_workspacegroup` stores a unique public slug, case-insensitively unique name, optional description, unique join code, joinable flag, creator, and timestamps. `created_by` uses PROTECT so a referenced creator cannot be deleted silently. Group slugs are backfilled by `accounts.0006`.
+- `accounts_groupmembership` links a group and a user with a unique `(group, user)` constraint and join timestamp. Deleting a group or member account cascades to memberships, not to the member's projects. Optional `added_by` uses SET_NULL to preserve membership when the enrolling account is removed.
+- Core mutation transactions lock the parent project before reading or editing requirements, then recalculate within the same transaction. Per-owner project creation/rename operations lock the owner first. Allocation errors roll back both inputs and outputs.
+- Administrator mutations serialize on the Administrator role row and recheck the acting account after locking. Demotion/deactivation cannot race to remove all active administrators. Group joining locks the group so membership creation is consistent with pause/delete actions.
+- Profile-photo objects live outside the database transaction. A rejected duplicate-email save cleans up the newly uploaded object when storage is available; storage cleanup failures are logged and never presented as a successful profile save.
